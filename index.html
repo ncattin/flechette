@@ -228,6 +228,7 @@ input[type=range]{width:100%;accent-color:var(--red)}
       </div>
     </div>
     <div class="toggle"><label for="dblOut">Finir sur un double</label><input type="checkbox" id="dblOut"></div>
+    <div class="toggle"><label for="voiceOn">Annonce vocale des scores</label><input type="checkbox" id="voiceOn"></div>
     <div class="field"><span class="lab">Joueurs</span><div id="plist" style="display:flex;flex-direction:column;gap:6px"></div>
       <button class="btn" id="addPlayer">Ajouter un joueur</button></div>
     <div class="field"><span class="lab">Position du téléphone (sert à trouver la pointe)</span>
@@ -260,8 +261,34 @@ const R={bullIn:6.35,bullOut:15.9,trIn:99,trOut:107,dbIn:162,dbOut:170};
 function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 
-let settings=Object.assign({mode:"501",doubleOut:true,players:["Joueur 1","Joueur 2"],tip:"bottom",sens:6},load("fl_settings",{}));
+let settings=Object.assign({voice:true,mode:"501",doubleOut:true,players:["Joueur 1","Joueur 2"],tip:"bottom",sens:6},load("fl_settings",{}));
 let calib=load("fl_calib",null); // {pts:[[x,y]x4], vw, vh}
+
+/* ---------- voix ---------- */
+const voice={v:null,en:false,ok:"speechSynthesis" in window,primed:false,
+  pick(){if(!this.ok)return;const vs=speechSynthesis.getVoices();
+    this.v=vs.find(v=>/^fr[-_]FR/i.test(v.lang)&&/google|thomas|amélie|amelie|audrey|marie/i.test(v.name))||vs.find(v=>/^fr[-_]FR/i.test(v.lang))||vs.find(v=>/^fr/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;
+    this.en=!!(this.v&&/^en/i.test(this.v.lang))},
+  prime(){if(!this.ok||this.primed)return;this.primed=true;try{const u=new SpeechSynthesisUtterance(" ");u.volume=0;speechSynthesis.speak(u)}catch(e){}},
+  say(fr,en,cut){if(!this.ok||!settings.voice)return;try{if(!this.v)this.pick();if(cut)speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(this.en?(en||fr):fr);if(this.v){u.voice=this.v;u.lang=this.v.lang}else u.lang="fr-FR";u.rate=1.05;speechSynthesis.speak(u)}catch(e){}},
+  dart(d){
+    if(d.num===0)return["Raté","Miss"];
+    if(d.num===25)return d.mult===2?["Bull","Bullseye"]:["25","25"];
+    if(d.mult===3)return["Triple "+d.num,"Treble "+d.num];
+    if(d.mult===2)return["Double "+d.num,"Double "+d.num];
+    return[""+d.num,""+d.num];
+  }
+};
+if(voice.ok){voice.pick();speechSynthesis.onvoiceschanged=()=>voice.pick()}
+document.addEventListener("pointerdown",()=>voice.prime(),{once:true,capture:true});
+function announce(d,corr){
+  const[f,e]=voice.dart(d),ev=evalTurn();let fr=(corr?"Corrigé : ":"")+f,en=(corr?"Corrected: ":"")+e;
+  if(ev.won){fr+=". Partie gagnée !";en+=". Game shot!"}
+  else if(ev.bust){fr+=". Bust";en+=". Bust"}
+  else if(game.turn.length>=3){fr+=". Total "+ev.sum;en+=". Total "+ev.sum}
+  voice.say(fr,en,corr);
+}
 
 /* ---------- game ---------- */
 let game, undoStack=[];
@@ -291,7 +318,7 @@ function evalTurn(){
 function locked(){const e=evalTurn();return game.over||game.turn.length>=3||e.bust||e.won}
 function addDart(d){
   if(locked())return false;
-  snap();game.turn.push(d);render();
+  snap();game.turn.push(d);render();announce(d,false);
   const e=evalTurn();
   if(e.won)setMsg(game.players[game.cur].name+" termine ! Valide avec Tour suivant","green");
   else if(e.bust)setMsg("Bust ! Le score revient à "+game.turnStart,"red");
@@ -307,7 +334,7 @@ function nextTurn(auto){
   if(!auto&&game.turn.some(d=>d.auto))det.pendingRemoval=true;
   game.cur=(game.cur+1)%game.players.length;
   game.turnStart=game.players[game.cur].score;game.turn=[];
-  render();setMsg("À "+game.players[game.cur].name+" de jouer","");
+  render();setMsg("À "+game.players[game.cur].name+" de jouer","");voice.say("À "+game.players[game.cur].name,game.players[game.cur].name+" to throw");
 }
 function showWin(){
   $("winName").textContent=game.players[game.winner].name+" gagne";
@@ -378,7 +405,7 @@ function openKeys(i){
 }
 function pick(mult,num){
   const d=mk(mult,num);d.auto=false;
-  if(keyIdx<game.turn.length){snap();d.pt=game.turn[keyIdx].pt;game.turn[keyIdx]=d;render();setMsg("Fléchette corrigée : "+lab(d),"")}
+  if(keyIdx<game.turn.length){snap();d.pt=game.turn[keyIdx].pt;d.b=game.turn[keyIdx].b;game.turn[keyIdx]=d;render();announce(d,true);setMsg("Fléchette corrigée : "+lab(d),"")}
   else addDart(d);
   hideSheet("keySheet");
   const e=evalTurn();if(e.bust)setMsg("Bust ! Le score revient à "+game.turnStart,"red");else if(e.won)setMsg(game.players[game.cur].name+" termine ! Valide avec Tour suivant","green");
@@ -403,7 +430,7 @@ $("scoreCancel").onclick=()=>hideSheet("scoreSheet");
 function renderSettings(){
   $("modeSeg").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===settings.mode));
   $("tipSeg").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===settings.tip));
-  $("dblOut").checked=settings.doubleOut;$("dblOut").disabled=settings.mode==="free";
+  $("dblOut").checked=settings.doubleOut;$("voiceOn").checked=settings.voice;$("dblOut").disabled=settings.mode==="free";
   $("sens").value=settings.sens;$("sensVal").textContent="("+settings.sens+"/10)";
   const pl=$("plist");pl.innerHTML="";
   settings.players.forEach((n,i)=>{
@@ -418,6 +445,7 @@ function renderSettings(){
 }
 $("modeSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{settings.mode=b.dataset.v;save("fl_settings",settings);renderSettings()});
 $("tipSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{settings.tip=b.dataset.v;save("fl_settings",settings);renderSettings()});
+$("voiceOn").onchange=()=>{settings.voice=$("voiceOn").checked;save("fl_settings",settings);if(settings.voice)voice.say("Annonce vocale activée","Voice on",true)};
 $("dblOut").onchange=()=>{settings.doubleOut=$("dblOut").checked;save("fl_settings",settings);render()};
 $("sens").oninput=()=>{settings.sens=+$("sens").value;save("fl_settings",settings);$("sensVal").textContent="("+settings.sens+"/10)"};
 $("addPlayer").onclick=()=>{settings.players.push("Joueur "+(settings.players.length+1));save("fl_settings",settings);renderSettings()};
@@ -622,7 +650,7 @@ function curOff(){return calibrating?[0,0]:det.off}
 function c2f(x,y){const o=curOff();return v2f(x+o[0],y+o[1])}           // calibration coords -> frame
 function b2f(bx,by){const[x,y]=applyH(Hi,bx,by);return c2f(x,y)}       // board mm -> frame
 
-$("startCam").onclick=async()=>{
+$("startCam").onclick=async()=>{voice.prime();
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camFail("Ce navigateur ne donne pas accès à la caméra.");return}
   try{
     const s=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}}});
@@ -748,7 +776,7 @@ function draw(){
     if(det.debug&&!calibrating){
       vctx.fillStyle="rgba(10,16,14,.75)";vctx.fillRect(0,view.height-W/22,W,W/22);
       vctx.fillStyle="#fff";vctx.font="500 "+Math.round(W/42)+"px Barlow,sans-serif";vctx.textAlign="left";vctx.textBaseline="middle";
-      vctx.fillText(H?("Changement "+det.lastCR+" px (seuil "+Math.round(det.minPix())+")  bruit "+det.lastCP+"  stabilisation "+(det.lostN?"perdue":"ok")+"  "+det.phase):(autoCal.on?"Recherche de la cible (meilleur score "+autoCal.lastScore.toFixed(2)+", il faut 0.15)":"Pas de cible"),8,view.height-W/44);
+      vctx.fillText(H?("Tache "+det.lastCR+" px (seuil "+Math.round(det.minPix())+")  bruit "+det.lastCP+"  stabilisation "+(det.lostN?"perdue":"ok")+"  "+det.phase):(autoCal.on?"Recherche de la cible (meilleur score "+autoCal.lastScore.toFixed(2)+", il faut 0.15)":"Pas de cible"),8,view.height-W/44);
     }
   }
   requestAnimationFrame(draw);
@@ -837,7 +865,7 @@ const det={
     this.off=[0,0];this.lostN=0;this.resetRef();
   },
   p2v(x,y){return[this.bx+x*this.bw/this.PW,this.by+y*this.bh/this.PH]},
-  resetRef(){this.ref=null;this.refG=null;this.prev=null;this.phase="attente";this.stable=0},
+  resetRef(){this.ref=null;this.refG=null;this.prev=null;this.empty=null;this.removing=0;this.phase="attente";this.stable=0},
   grabTo(ctx,src,sx,sy,sw,sh,w,h){ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);ctx.drawImage(src,sx,sy,sw,sh,0,0,w,h);return ctx.getImageData(0,0,w,h).data},
   gray(d,n){const g=new Float32Array(n);for(let i=0,j=0;i<n;i++,j+=4)g[i]=d[j]*.299+d[j+1]*.587+d[j+2]*.114;return g},
   grad(g,w,h){const o=new Float32Array(w*h);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;o[i]=Math.abs(g[i+1]-g[i-1])+Math.abs(g[i+w]-g[i-w])}return o},
@@ -850,7 +878,7 @@ const det={
     for(let dy=-Rr;dy<=Rr;dy+=2)for(let dx=-Rr;dx<=Rr;dx+=2){const s=sad(dx,dy);sum+=s;cnt++;if(s<best){best=s;bx=dx;by=dy}}
     let b2=best,fx=bx,fy=by;
     for(let dy=by-1;dy<=by+1;dy++)for(let dx=bx-1;dx<=bx+1;dx++){if(Math.abs(dx)>Rr||Math.abs(dy)>Rr)continue;const s=sad(dx,dy);if(s<b2){b2=s;fx=dx;fy=dy}}
-    if(b2>.82*(sum/cnt))return false; // pas de correspondance fiable
+    if(b2>.9*(sum/cnt))return false; // pas de correspondance fiable
     let sx=0,sy=0;
     if(Math.abs(fx)<Rr){const a=sad(fx-1,fy),c=sad(fx+1,fy),den=a-2*b2+c;if(den>0)sx=Math.max(-.5,Math.min(.5,.5*(a-c)/den))}
     if(Math.abs(fy)<Rr){const a=sad(fx,fy-1),c=sad(fx,fy+1),den=a-2*b2+c;if(den>0)sy=Math.max(-.5,Math.min(.5,.5*(a-c)/den))}
@@ -890,59 +918,117 @@ const det={
     if(!this.enabled||calibrating||!H||!this.ctx||!vw||video.readyState<2)return;
     if(!this.track()){
       this.lostN++;this.prev=null;
-      if(this.lostN===8)setStatus("Cible perdue : recadre la cible dans l'image","busy");
-      if(this.lostN>=30){this.lostN=0;autoCal.start("Cible perdue : nouvelle recherche…")}
+      if(this.lostN===10)setStatus("Cible perdue : recadre la cible dans l'image","busy");
+      if(this.lostN>=40){this.lostN=0;autoCal.start("Cible perdue : nouvelle recherche…")}
       return;
     }
-    if(this.lostN>=8)setStatus("Cible retrouvée","on");
+    if(this.lostN>=10)setStatus("Cible retrouvée","on");
     this.lostN=0;this.fine();
     const cur=this.grabTo(this.ctx,video,this.bx+this.off[0],this.by+this.off[1],this.bw,this.bh,this.PW,this.PH);
-    if(!this.ref){this.setRef(cur);this.prev=cur;return}
+    if(!this.ref){this.setRef(cur);this.empty=cur;this.prev=cur;return}
     if(!this.prev)this.prev=cur;
-    const t=this.thr(),m=this.mask,E=this.refE,N=this.PW*this.PH;let cR=0,cP=0;
+    const t=this.thr(),m=this.mask,N=this.PW*this.PH,rA=this.norm(this.ref,cur),pA=this.norm(this.prev,cur);
+    if(!this.bin||this.bin.length!==N)this.bin=new Uint8Array(N);
+    const bin=this.bin;let cR=0,cP=0;
     const dbg=this.debug?this.dbgImg.data:null;
     for(let i=0,j=0;i<N;i++,j+=4){
-      if(dbg)dbg[j+3]=0;
+      bin[i]=0;if(dbg)dbg[j+3]=0;
       if(!m[i])continue;
-      if(this.rdiff(cur,this.ref,i,j,t)){cR++;if(dbg){dbg[j]=255;dbg[j+1]=40;dbg[j+2]=60;dbg[j+3]=200}}
-      if(this.rdiff(cur,this.prev,i,j,t))cP++;
+      if(this.rdiff(cur,rA,i,j,t)){bin[i]=1;cR++;if(dbg){dbg[j]=255;dbg[j+1]=40;dbg[j+2]=60;dbg[j+3]=200}}
+      if(this.rdiff(cur,pA,i,j,t))cP++;
     }
     if(dbg)this.dbgCtx.putImageData(this.dbgImg,0,0);
-    this.prev=cur;this.lastCR=cR;this.lastCP=cP;
+    this.prev=cur;this.lastCP=cP;
     const minP=this.minPix();
+    // taille de la plus grosse tache (le bruit et les petits tremblements font des points épars, pas une tache)
+    let big=0;if(cR>=minP*.7){const cs=this.blobs(bin,minP*.5);big=cs.length?cs[0].n:0}
+    this.lastCR=big;
     if(this.phase==="attente"){
-      if(cR>=minP){this.phase="mouvement";this.stable=0;this.settleT=Date.now();setStatus("Mouvement détecté…","busy")}
-      else if(cR<minP*.9&&!locked()&&!this.pendingRemoval)this.setRef(cur);
+      if(big>=minP){this.phase="analyse";this.stable=0;this.settleT=Date.now();setStatus("Analyse…","busy")}
+      else{this.setRef(cur);if(!game.turn.length&&!this.pendingRemoval&&!this.removing)this.empty=cur}
     }else{
-      const calm=cP<Math.max(5,cR*.06);
+      const calm=cP<Math.max(6,cR*.05);
       this.stable=calm?this.stable+1:0;
-      const need=(locked()||this.pendingRemoval)?6:5;
-      if(this.stable>=need){this.phase="attente";this.analyze(cur,cR,minP,t)}
-      else if(Date.now()-this.settleT>8000){this.phase="attente";this.setRef(cur);setStatus("Image instable, référence remise à zéro","busy")}
+      if(this.stable>=3){this.phase="attente";this.analyze(cur,cR,minP,t)}
+      else if(Date.now()-this.settleT>12000){this.phase="attente";this.setRef(cur);setStatus("Image instable, je repars de zéro","busy")}
     }
+    if(this.removing&&Date.now()-this.removing>8000)this.removing=0;
+  },
+  norm(refArr,cur){ // compense les changements de luminosité automatiques de la caméra
+    const m=this.mask,N=this.PW*this.PH;let a0=0,a1=0,a2=0,b0=0,b1=0,b2=0;
+    for(let i=0,j=0;i<N;i+=3,j+=12){if(!m[i])continue;a0+=cur[j];a1+=cur[j+1];a2+=cur[j+2];b0+=refArr[j];b1+=refArr[j+1];b2+=refArr[j+2]}
+    const g=[a0/(b0||1),a1/(b1||1),a2/(b2||1)].map(v=>Math.min(1.5,Math.max(.67,v)));
+    if(Math.abs(g[0]-1)<.015&&Math.abs(g[1]-1)<.015&&Math.abs(g[2]-1)<.015)return refArr;
+    const o=new Uint8ClampedArray(refArr.length);
+    for(let j=0;j<o.length;j+=4){o[j]=refArr[j]*g[0];o[j+1]=refArr[j+1]*g[1];o[j+2]=refArr[j+2]*g[2];o[j+3]=255}
+    return o;
   },
   analyze(cur,cR,minP,t){
-    if(cR<minP){setStatus("En attente d'une fléchette","on");return}
-    if(this.pendingRemoval||locked()){
+    const m=this.mask,W=this.PW,N=W*this.PH,eA=this.norm(this.empty,cur),rA=this.norm(this.ref,cur);
+    const bE=new Uint8Array(N),bR=new Uint8Array(N);let nR=0;
+    for(let i=0,j=0;i<N;i++,j+=4){if(!m[i])continue;if(this.rdiff(cur,eA,i,j,t))bE[i]=1;if(this.rdiff(cur,rA,i,j,t)){bR[i]=1;nR++}}
+    const cE=this.blobs(bE,minP*.5),bigE=cE.length?cE[0].n:0;
+    // 1) la cible est redevenue vide : fléchettes retirées
+    if(bigE<minP*.8){
+      this.setRef(cur);this.empty=cur;const wasRemoving=this.removing;this.removing=0;
+      if(this.pendingRemoval){this.pendingRemoval=false;setStatus("Cible vide, à toi de jouer","on");return}
+      if(game.turn.length&&!game.over){setStatus("Fléchettes retirées, joueur suivant","on");nextTurn(true);return}
+      setStatus(wasRemoving?"Cible vide":"En attente d'une fléchette","on");return;
+    }
+    // 2) main devant la cible : on attend qu'elle parte, sans rien compter
+    if(nR>this.maskN*.22){setStatus("Main devant la cible…","busy");return}
+    // 3) taches nouvelles par rapport à l'état précédent
+    const cs=this.blobs(bR,minP*.5).filter(c=>c.n>=minP*.8);
+    const added=[];let removed=0;
+    for(const c of cs){
+      if(c.x1-c.x0>W*.55||c.y1-c.y0>this.PH*.55)continue; // trop étalé : tremblement, pas une fléchette
+      let k=0;for(const p of c.pix)if(bE[p])k++;
+      if(k>c.n*.5)added.push(c);else removed++;
+    }
+    // morceaux d'une même fléchette (pointe / empennage séparés) : on les regroupe
+    const gap=W*.035;
+    for(let i=0;i<added.length;i++)for(let k=i+1;k<added.length;k++){const a=added[i],b=added[k];
+      if(b.x0-a.x1<gap&&a.x0-b.x1<gap&&b.y0-a.y1<gap&&a.y0-b.y1<gap){a.pix=a.pix.concat(b.pix);a.n+=b.n;a.x0=Math.min(a.x0,b.x0);a.y0=Math.min(a.y0,b.y0);a.x1=Math.max(a.x1,b.x1);a.y1=Math.max(a.y1,b.y1);added.splice(k,1);k=i}}
+    for(let i=added.length-1;i>0;i--)if(added[i].n<minP*1.3)added.splice(i,1);
+    if(removed&&!added.length){
       this.setRef(cur);
-      if(this.pendingRemoval){this.pendingRemoval=false;setStatus("Cible prête, en attente d'une fléchette","on");return}
-      if(!game.over){setStatus("Fléchettes retirées, joueur suivant","on");nextTurn(true)}
-      return;
+      if(!game.turn.length&&!this.pendingRemoval){this.empty=cur;setStatus("En attente d'une fléchette","on");return}
+      this.removing=Date.now();setStatus("Retrait des fléchettes…","busy");return;
     }
-    if(cR>this.maskN*.25){this.setRef(cur);setStatus("Grand changement ignoré (main, lumière…)","busy");return}
-    const blob=this.largest(cur,t);
-    if(!blob||blob.length<minP*.8){this.setRef(cur);setStatus("Changement trop petit, ignoré","on");return}
-    const[tx,ty]=this.tip(blob);
-    const[vx,vy]=this.p2v(tx+.5,ty+.5),[bx,by]=applyH(H,vx,vy);
     this.setRef(cur);
-    if(game.turn.some(o=>o.b&&Math.hypot(o.b[0]-bx,o.b[1]-by)<12)){setStatus("Même fléchette, ignorée","on");return}
-    const d=scoreAt(bx,by);d.auto=true;d.pt=[vx,vy];d.b=[bx,by];
-    if(addDart(d)){
-      flashDart(game.turn.length-1);try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}
-      setStatus("Touché : "+lab(d)+" ("+d.value+")","hit");
+    if(!added.length){setStatus("En attente d'une fléchette","on");return}
+    if(this.removing){setStatus("Retire toutes les fléchettes…","busy");return}
+    if(this.pendingRemoval||locked()){setStatus("Retire les fléchettes pour continuer","busy");return}
+    let hits=0;
+    for(const c of added.slice(0,3)){
+      if(locked())break;
+      const blob=this.blobFull(c.pix,cur,rA,t);
+      const[tx,ty]=this.tip(blob);
+      const[vx,vy]=this.p2v(tx+.5,ty+.5),[bx,by]=applyH(H,vx,vy);
+      if(game.turn.some(o=>o.b&&Math.hypot(o.b[0]-bx,o.b[1]-by)<5))continue;
+      const d=scoreAt(bx,by);d.auto=true;d.pt=[vx,vy];d.b=[bx,by];
+      if(addDart(d)){hits++;flashDart(game.turn.length-1);setStatus("Touché : "+lab(d)+" ("+d.value+")","hit")}
     }
+    if(hits){try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}}
+    else setStatus("Même fléchette, ignorée","on");
   },
-  comps(bin,W,Hh,x0,y0,x1,y1){ // plus grande composante (pixels voisins regroupés après dilatation)
+  blobs(bin,minN){ // toutes les taches (pixels proches regroupés), de la plus grosse à la plus petite
+    const W=this.PW,Hh=this.PH,N=W*Hh;
+    if(!this.dil||this.dil.length!==N){this.dil=new Uint8Array(N);this.seen=new Uint8Array(N);this.stk=new Int32Array(N)}
+    const dil=this.dil,seen=this.seen,stack=this.stk;dil.fill(0);seen.fill(0);
+    for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){if(!bin[y*W+x])continue;for(let dy=-1;dy<=1;dy++){const ny=y+dy;if(ny<0||ny>=Hh)continue;for(let dx=-1;dx<=1;dx++){const nx=x+dx;if(nx>=0&&nx<W)dil[ny*W+nx]=1}}}
+    const out=[];
+    for(let i0=0;i0<N;i0++){
+      if(!dil[i0]||seen[i0])continue;
+      let sp=0;const pix=[];let x0=W,y0=Hh,x1=0,y1=0;stack[sp++]=i0;seen[i0]=1;
+      while(sp){const p=stack[--sp],px=p%W,py=(p/W)|0;
+        if(bin[p]){pix.push(p);if(px<x0)x0=px;if(px>x1)x1=px;if(py<y0)y0=py;if(py>y1)y1=py}
+        for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const nx=px+dx,ny=py+dy;if(nx<0||ny<0||nx>=W||ny>=Hh)continue;const q=ny*W+nx;if(dil[q]&&!seen[q]){seen[q]=1;stack[sp++]=q}}}
+      if(pix.length>=minN)out.push({n:pix.length,pix,x0,y0,x1,y1});
+    }
+    return out.sort((a,b)=>b.n-a.n);
+  },
+  comps(bin,W,Hh,x0,y0,x1,y1){ // plus grande composante dans une zone
     const N=W*Hh,dil=new Uint8Array(N);
     for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){if(!bin[y*W+x])continue;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const nx=x+dx,ny=y+dy;if(nx>=x0&&ny>=y0&&nx<x1&&ny<y1)dil[ny*W+nx]=1}}
     const seen=new Uint8Array(N),stack=new Int32Array(N);let best=null,bestN=0;
@@ -955,18 +1041,15 @@ const det={
     }
     return best;
   },
-  largest(cur,t){
-    const W=this.PW,Hh=this.PH,N=W*Hh,m=this.mask,ref=this.ref,E=this.refE,rb=new Uint8Array(N);
-    for(let i=0,j=0;i<N;i++,j+=4)if(m[i]&&this.rdiff(cur,ref,i,j,t))rb[i]=1;
-    const core=this.comps(rb,W,Hh,0,0,W,Hh);if(!core)return null;
-    // zone autour du changement, puis différence fine pour récupérer le fût fin jusqu'à la pointe
+  blobFull(core,cur,ref,t){ // autour de la tache, différence fine pour récupérer le fût jusqu'à la pointe
+    const W=this.PW,Hh=this.PH,N=W*Hh,m=this.mask,E=this.refE;
     let x0=W,y0=Hh,x1=0,y1=0;for(const p of core){const x=p%W,y=(p/W)|0;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}
-    const pad=Math.round(W*.16);x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(W,x1+pad+1);y1=Math.min(Hh,y1+pad+1);
+    const pad=Math.round(W*.12);x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(W,x1+pad+1);y1=Math.min(Hh,y1+pad+1);
     const fb=new Uint8Array(N);
     for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=y*W+x;if(m[i]&&this.diff(cur,ref,i*4)>t+E[i])fb[i]=1}
     for(const p of core)fb[p]=1;
     const full=this.comps(fb,W,Hh,x0,y0,x1,y1);
-    return(full&&full.length>=core.length)?full:core;
+    return(full&&full.length>=core.length&&full.length<core.length*4)?full:core;
   },
   tip(blob){
     const W=this.PW;let mx=0,my=0;for(const p of blob){mx+=p%W;my+=(p/W)|0}mx/=blob.length;my/=blob.length;
@@ -983,7 +1066,7 @@ const det={
 };
 
 /* ---------- demo: virtual board, virtual darts, simulated hand shake ---------- */
-$("demoBtn").onclick=()=>{
+$("demoBtn").onclick=()=>{voice.prime();
   const C=document.createElement("canvas");C.width=960;C.height=720;const g=C.getContext("2d");
   const s=240/170,cx=480,cy=360;demo={s,cx,cy};
   const B=document.createElement("canvas");B.width=B.height=760;const b=B.getContext("2d"),bc=380;
@@ -998,7 +1081,7 @@ $("demoBtn").onclick=()=>{
   for(let i=0;i<20;i++){const a=(i*18-9)*Math.PI/180;b.beginPath();b.moveTo(bc+R.bullOut*s*Math.sin(a),bc-R.bullOut*s*Math.cos(a));b.lineTo(bc+R.dbOut*s*Math.sin(a),bc-R.dbOut*s*Math.cos(a));b.stroke()}
   b.fillStyle="#f2f2f2";b.font="600 24px Arial,sans-serif";b.textAlign="center";b.textBaseline="middle";
   for(let i=0;i<20;i++){const a=i*18*Math.PI/180;b.fillText(ORDER[i],bc+197*s*Math.sin(a),bc-197*s*Math.cos(a))}
-  const cols=["#ffcc00","#2aa9ff","#ff4fa3"];let darts=[],label="en attente…",jx=0,jy=0,vx=0,vy=0,shake=false;
+  const cols=["#ffcc00","#2aa9ff","#ff4fa3"];let darts=[],label="en attente…",jx=0,jy=0,vx=0,vy=0,shake=false,hand=null;
   const hit=()=>{const i=Math.floor(Math.random()*20),k=Math.random();let r;
     if(k<.08)r=Math.random()*14;else if(k<.5)r=R.bullOut+4+Math.random()*(R.trIn-R.bullOut-8);else if(k<.68)r=R.trIn+2+Math.random()*(R.trOut-R.trIn-4);
     else if(k<.86)r=R.trOut+4+Math.random()*(R.dbIn-R.trOut-8);else r=R.dbIn+2+Math.random()*(R.dbOut-R.dbIn-4);
@@ -1008,7 +1091,9 @@ $("demoBtn").onclick=()=>{
     t++;if(t===15)shake=true;
     const cyc=(t-20)%150;if(t<20)return;
     if(cyc===0||cyc===35||cyc===70){const h=hit();h.col=cols[darts.length%3];darts.push(h);label="dernière fléchette = "+lab(scoreAt(h.bx,h.by))}
-    if(cyc===110){darts=[];label="fléchettes retirées"}
+    if(cyc===100){hand={x:0,y:-60};label="retrait à la main"}
+    if(cyc===110)darts=[];
+    if(cyc===120){hand=null;label="fléchettes retirées"}
   },100);
   const frame=()=>{
     if(shake){vx+=(Math.random()-.5)*1.2;vy+=(Math.random()-.5)*1.2;vx*=.9;vy*=.9;jx=Math.max(-16,Math.min(16,(jx+vx)*.97));jy=Math.max(-16,Math.min(16,(jy+vy)*.97))}
@@ -1020,6 +1105,9 @@ $("demoBtn").onclick=()=>{
       g.strokeStyle="#4b4b4b";g.lineWidth=8;g.beginPath();g.moveTo(x+2,y-12);g.lineTo(x+7,y-42);g.stroke();
       g.strokeStyle=d.col;g.lineWidth=4;g.beginPath();g.moveTo(x+7,y-42);g.lineTo(x+10,y-60);g.stroke();
       g.fillStyle=d.col;g.beginPath();g.moveTo(x+10,y-58);g.lineTo(x+27,y-98);g.lineTo(x-7,y-98);g.closePath();g.fill()}
+    if(hand){g.fillStyle="#d9a07a";g.beginPath();g.ellipse(hand.x*s+40,hand.y*s+60,120,90,-.3,0,7);g.fill();
+      for(let f=0;f<4;f++){g.beginPath();g.ellipse(hand.x*s-60+f*35,hand.y*s-30,16,60,.1,0,7);g.fill()}
+      g.fillRect(hand.x*s+20,hand.y*s+100,110,400)}
     g.restore();
     g.fillStyle="rgba(0,0,0,.55)";g.fillRect(0,676,330,44);g.fillStyle="#fff";g.font="600 19px Arial,sans-serif";g.textAlign="left";g.textBaseline="middle";g.fillText("Démo : "+label,12,698);
     requestAnimationFrame(frame);
