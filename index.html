@@ -331,7 +331,7 @@ function nextTurn(auto){
   const e=evalTurn(),p=game.players[game.cur];
   p.score=e.bust?game.turnStart:e.rem;
   if(e.won){game.over=true;game.winner=game.cur;render();showWin();return}
-  if(!auto&&game.turn.some(d=>d.auto))det.pendingRemoval=true;
+  if(!auto&&game.turn.some(d=>d.auto)){det.pendingRemoval=true;det.pendPP=game.turn.filter(d=>d.pp).map(d=>d.pp)}
   game.cur=(game.cur+1)%game.players.length;
   game.turnStart=game.players[game.cur].score;game.turn=[];
   render();setMsg("À "+game.players[game.cur].name+" de jouer","");voice.say("À "+game.players[game.cur].name,game.players[game.cur].name+" to throw");
@@ -814,6 +814,15 @@ $("detBtn").onclick=()=>{det.enabled=!det.enabled;$("detBtn").setAttribute("aria
 $("dbgBtn").onclick=()=>{det.debug=!det.debug;$("dbgBtn").setAttribute("aria-pressed",det.debug)};
 $("quitDemo").onclick=()=>location.reload();
 
+/* ---------- bloque la mise au point et la balance des blancs une fois la cible trouvée (évite les faux mouvements) ---------- */
+function lockCam(){
+  if(!track||demo||!track.getCapabilities)return;
+  try{const c=track.getCapabilities(),adv={};
+    if(c.focusMode&&c.focusMode.includes("manual"))adv.focusMode="manual";
+    if(c.whiteBalanceMode&&c.whiteBalanceMode.includes("manual"))adv.whiteBalanceMode="manual";
+    if(Object.keys(adv).length)track.applyConstraints({advanced:[adv]}).catch(()=>{});
+  }catch(e){}
+}
 /* ---------- calibration automatique ---------- */
 const autoCal={on:false,last:null,ctx:null,lastScore:0,
   start(msg){this.on=true;this.last=null;this.lastScore=0;H=Hi=null;det.ctx=null;det.off=[0,0];setStatus(msg||"Recherche de la cible… vise-la","busy")},
@@ -829,7 +838,7 @@ const autoCal={on:false,last:null,ctx:null,lastScore:0,
     const pts=r.pts.map(p=>[p[0]/sc,p[1]/sc]),rad=r.rad/sc;
     if(this.last&&Math.max(...pts.map((p,i)=>Math.hypot(p[0]-this.last[i][0],p[1]-this.last[i][1])))<rad*.07){
       this.stop();calib={pts,vw,vh,hz:hwZoom?zoomVal:null,auto:true};if(!demo)save("fl_calib",calib);
-      det.off=[0,0];updateH(pts);det.setup(video);
+      det.off=[0,0];updateH(pts);det.setup(video);lockCam();
       setStatus("Cible détectée ✓ en attente d'une fléchette","on");
       setMsg("Cible trouvée : lance, les points s'ajoutent tout seuls","green");
       try{navigator.vibrate&&navigator.vibrate([30,40,30])}catch(e){}
@@ -865,7 +874,7 @@ const det={
     this.off=[0,0];this.lostN=0;this.resetRef();
   },
   p2v(x,y){return[this.bx+x*this.bw/this.PW,this.by+y*this.bh/this.PH]},
-  resetRef(){this.ref=null;this.refG=null;this.prev=null;this.empty=null;this.removing=0;this.phase="attente";this.stable=0},
+  resetRef(){this.ref=null;this.refG=null;this.prev=null;this.empty=null;this.nz=null;this.seenN=0;this.idleN=0;this.removing=0;this.phase="attente";this.stable=0},
   grabTo(ctx,src,sx,sy,sw,sh,w,h){ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);ctx.drawImage(src,sx,sy,sw,sh,0,0,w,h);return ctx.getImageData(0,0,w,h).data},
   gray(d,n){const g=new Float32Array(n);for(let i=0,j=0;i<n;i++,j+=4)g[i]=d[j]*.299+d[j+1]*.587+d[j+2]*.114;return g},
   grad(g,w,h){const o=new Float32Array(w*h);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;o[i]=Math.abs(g[i+1]-g[i-1])+Math.abs(g[i+w]-g[i-w])}return o},
@@ -907,6 +916,7 @@ const det={
   thr(){return 62-settings.sens*4.5},
   minPix(){return Math.max(8,(84-settings.sens*7)*(this.PW*this.PH)/(360*360))},
   rdiff(a,b,i,j,t){ // changement réel : aucun pixel voisin (±2) de l'autre image ne ressemble (tolère les petits tremblements)
+    if(this.nz)t+=Math.min(18,this.nz[i]*.6);
     if(this.diff(a,b,j)<=t)return false;
     const W=this.PW,Hh=this.PH,x=i%W,y=(i/W)|0;
     for(let dy=-2;dy<=2;dy++){const ny=y+dy;if(ny<0||ny>=Hh)continue;for(let dx=-2;dx<=2;dx++){const nx=x+dx;if(nx<0||nx>=W||(!dx&&!dy))continue;if(this.diff3(a,j,b,(ny*W+nx)*4)<=t)return false}}
@@ -925,32 +935,42 @@ const det={
     if(this.lostN>=10)setStatus("Cible retrouvée","on");
     this.lostN=0;this.fine();
     const cur=this.grabTo(this.ctx,video,this.bx+this.off[0],this.by+this.off[1],this.bw,this.bh,this.PW,this.PH);
-    if(!this.ref){this.setRef(cur);this.empty=cur;this.prev=cur;return}
+    const N=this.PW*this.PH;
+    if(!this.ref){this.setRef(cur);this.empty=cur;this.prev=cur;this.nz=new Float32Array(N).fill(3);this.learn=0;return}
     if(!this.prev)this.prev=cur;
-    const t=this.thr(),m=this.mask,N=this.PW*this.PH,rA=this.norm(this.ref,cur),pA=this.norm(this.prev,cur);
-    if(!this.bin||this.bin.length!==N)this.bin=new Uint8Array(N);
-    const bin=this.bin;let cR=0,cP=0;
+    const t=this.thr(),m=this.mask,idle=this.phase==="attente";
+    // apprentissage du bruit propre à chaque pixel (grain, scintillement des lampes, reflets)
+    const learnNz=(skip)=>{const nz=this.nz,p=this.prev,fast=this.learn>0;
+      for(let i=0,j=0;i<N;i++,j+=4){if(!m[i]||(skip&&skip[i]))continue;const d=this.diff(cur,p,j);nz[i]=d>nz[i]?nz[i]*(fast?.4:.8)+d*(fast?.6:.2):nz[i]*.985+d*.015}};
+    if(this.learn>0){learnNz(null);this.learn--;this.prev=cur;this.setRef(cur);this.empty=cur;if(!this.learn)setStatus("Prêt : en attente d'une fléchette","on");else setStatus("Calibrage du bruit de l'image…","busy");return}
+    const rA=this.norm(this.ref,cur),pA=this.norm(this.prev,cur);
+    if(!this.bin||this.bin.length!==N){this.bin=new Uint8Array(N);this.binP=new Uint8Array(N)}
+    const bin=this.bin,binP=this.binP;let cR=0,cP=0;
     const dbg=this.debug?this.dbgImg.data:null;
     for(let i=0,j=0;i<N;i++,j+=4){
-      bin[i]=0;if(dbg)dbg[j+3]=0;
+      bin[i]=0;binP[i]=0;if(dbg)dbg[j+3]=0;
       if(!m[i])continue;
       if(this.rdiff(cur,rA,i,j,t)){bin[i]=1;cR++;if(dbg){dbg[j]=255;dbg[j+1]=40;dbg[j+2]=60;dbg[j+3]=200}}
-      if(this.rdiff(cur,pA,i,j,t))cP++;
+      if(!idle&&this.rdiff(cur,pA,i,j,t)){binP[i]=1;cP++}
     }
     if(dbg)this.dbgCtx.putImageData(this.dbgImg,0,0);
-    this.prev=cur;this.lastCP=cP;
-    const minP=this.minPix();
-    // taille de la plus grosse tache (le bruit et les petits tremblements font des points épars, pas une tache)
-    let big=0;if(cR>=minP*.7){const cs=this.blobs(bin,minP*.5);big=cs.length?cs[0].n:0}
+    if(idle&&this.nz)learnNz(bin);
+    this.prev=cur;
+    const minP=this.minPix(),W=this.PW;
+    // plus grosse tache compacte (une bande de lumière ou un tremblement couvrent toute la cible : ignorés)
+    const compact=c=>c.x1-c.x0<W*.55&&c.y1-c.y0<this.PH*.55;
+    let big=0;if(cR>=minP*.7){const cs=this.blobs(bin,minP*.5).filter(compact);big=cs.length?cs[0].n:0}
     this.lastCR=big;
-    if(this.phase==="attente"){
-      if(big>=minP){this.phase="analyse";this.stable=0;this.settleT=Date.now();setStatus("Analyse…","busy")}
-      else{this.setRef(cur);if(!game.turn.length&&!this.pendingRemoval&&!this.removing)this.empty=cur}
+    if(idle){
+      if(big>=minP){this.seenN=(this.seenN||0)+1;if(this.seenN>=2){this.phase="analyse";this.stable=0;this.settleT=Date.now();this.seenN=0;setStatus("Analyse…","busy")}}
+      else{this.seenN=0;this.idleN=(this.idleN||0)+1;
+        if(this.idleN>=4){this.idleN=0;this.setRef(cur);if(!game.turn.length&&!this.pendingRemoval&&!this.removing)this.empty=cur}}
     }else{
-      const calm=cP<Math.max(6,cR*.05);
-      this.stable=calm?this.stable+1:0;
-      if(this.stable>=3){this.phase="attente";this.analyze(cur,cR,minP,t)}
-      else if(Date.now()-this.settleT>12000){this.phase="attente";this.setRef(cur);setStatus("Image instable, je repars de zéro","busy")}
+      let bigP=0;if(cP>=minP*.5){const cs=this.blobs(binP,minP*.4);bigP=cs.length?cs[0].n:0}
+      this.lastCP=bigP;
+      this.stable=bigP<minP*.6?this.stable+1:0;
+      const el=Date.now()-this.settleT;
+      if(this.stable>=2||el>2500){this.phase="attente";this.analyze(cur,cR,minP,t)}
     }
     if(this.removing&&Date.now()-this.removing>8000)this.removing=0;
   },
@@ -967,16 +987,21 @@ const det={
     const m=this.mask,W=this.PW,N=W*this.PH,eA=this.norm(this.empty,cur),rA=this.norm(this.ref,cur);
     const bE=new Uint8Array(N),bR=new Uint8Array(N);let nR=0;
     for(let i=0,j=0;i<N;i++,j+=4){if(!m[i])continue;if(this.rdiff(cur,eA,i,j,t))bE[i]=1;if(this.rdiff(cur,rA,i,j,t)){bR[i]=1;nR++}}
-    const cE=this.blobs(bE,minP*.5),bigE=cE.length?cE[0].n:0;
+    const cpt=c=>c.x1-c.x0<W*.55&&c.y1-c.y0<this.PH*.55,cE=this.blobs(bE,minP*.5).filter(cpt),bigE=cE.length?cE[0].n:0;
+    // 0) main ou gros objet devant la cible : on attend qu'il parte, sans rien compter
+    const allR=this.blobs(bR,minP*.5);
+    if(nR>this.maskN*.22||(allR.length&&allR[0].n>this.maskN*.05)){setStatus("Main devant la cible…","busy");return}
+    // les fléchettes de ce tour sont-elles encore plantées ? (on regarde autour de chaque pointe)
+    const tips=this.pendingRemoval?(this.pendPP||[]):game.turn.filter(o=>o.pp).map(o=>o.pp);
+    const gone=tips.length>0&&tips.every(pp=>{const r=Math.max(3,Math.round(W*.025)),cx=Math.round(pp[0]),cy=Math.round(pp[1]);let k=0,n=0;
+      for(let y=cy-r;y<=cy+r;y++)for(let x=cx-r;x<=cx+r;x++){if(x<0||y<0||x>=W||y>=this.PH)continue;n++;if(bE[y*W+x])k++}return k<n*.15});
     // 1) la cible est redevenue vide : fléchettes retirées
-    if(bigE<minP*.8){
+    if(bigE<minP*.8||(gone&&(this.removing||this.pendingRemoval||locked()))){
       this.setRef(cur);this.empty=cur;const wasRemoving=this.removing;this.removing=0;
       if(this.pendingRemoval){this.pendingRemoval=false;setStatus("Cible vide, à toi de jouer","on");return}
       if(game.turn.length&&!game.over){setStatus("Fléchettes retirées, joueur suivant","on");nextTurn(true);return}
       setStatus(wasRemoving?"Cible vide":"En attente d'une fléchette","on");return;
     }
-    // 2) main devant la cible : on attend qu'elle parte, sans rien compter
-    if(nR>this.maskN*.22){setStatus("Main devant la cible…","busy");return}
     // 3) taches nouvelles par rapport à l'état précédent
     const cs=this.blobs(bR,minP*.5).filter(c=>c.n>=minP*.8);
     const added=[];let removed=0;
@@ -1006,7 +1031,7 @@ const det={
       const[tx,ty]=this.tip(blob);
       const[vx,vy]=this.p2v(tx+.5,ty+.5),[bx,by]=applyH(H,vx,vy);
       if(game.turn.some(o=>o.b&&Math.hypot(o.b[0]-bx,o.b[1]-by)<5))continue;
-      const d=scoreAt(bx,by);d.auto=true;d.pt=[vx,vy];d.b=[bx,by];
+      const d=scoreAt(bx,by);d.auto=true;d.pt=[vx,vy];d.b=[bx,by];d.pp=[tx,ty];
       if(addDart(d)){hits++;flashDart(game.turn.length-1);setStatus("Touché : "+lab(d)+" ("+d.value+")","hit")}
     }
     if(hits){try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}}
