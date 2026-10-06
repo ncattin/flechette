@@ -231,9 +231,9 @@ input[type=range]{width:100%;accent-color:var(--red)}
     <div class="toggle"><label for="voiceOn">Annonce vocale des scores</label><input type="checkbox" id="voiceOn"></div>
     <div class="field"><span class="lab">Joueurs</span><div id="plist" style="display:flex;flex-direction:column;gap:6px"></div>
       <button class="btn" id="addPlayer">Ajouter un joueur</button></div>
-    <div class="field"><span class="lab">Position du téléphone (sert à trouver la pointe)</span>
+    <div class="field"><span class="lab">Position du téléphone (sert à trouver la pointe, Auto conseillé)</span>
       <div class="seg" id="tipSeg">
-        <button data-v="bottom">Sous la cible</button><button data-v="top">Au-dessus</button><button data-v="center">De face</button>
+        <button data-v="auto">Auto</button><button data-v="bottom">Sous la cible</button><button data-v="top">Au-dessus</button><button data-v="center">De face</button>
       </div>
     </div>
     <div class="field"><label for="sens">Sensibilité de détection <span id="sensVal"></span></label><input type="range" id="sens" min="1" max="10" step="1"></div>
@@ -261,7 +261,8 @@ const R={bullIn:6.35,bullOut:15.9,trIn:99,trOut:107,dbIn:162,dbOut:170};
 function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 
-let settings=Object.assign({voice:true,mode:"501",doubleOut:true,players:["Joueur 1","Joueur 2"],tip:"bottom",sens:6},load("fl_settings",{}));
+let settings=Object.assign({voice:true,mode:"501",doubleOut:true,players:["Joueur 1","Joueur 2"],tip:"auto",sens:6},load("fl_settings",{}));
+if(!settings.v7){settings.v7=true;settings.tip="auto";save("fl_settings",settings)}
 let calib=load("fl_calib",null); // {pts:[[x,y]x4], vw, vh}
 
 /* ---------- voix ---------- */
@@ -331,7 +332,7 @@ function nextTurn(auto){
   const e=evalTurn(),p=game.players[game.cur];
   p.score=e.bust?game.turnStart:e.rem;
   if(e.won){game.over=true;game.winner=game.cur;render();showWin();return}
-  if(!auto&&game.turn.some(d=>d.auto)){det.pendingRemoval=true;det.pendPP=game.turn.filter(d=>d.pp).map(d=>d.pp)}
+  if(!auto&&game.turn.some(d=>d.auto)){det.pendingRemoval=true;det.pendPP=game.turn.filter(d=>d.bp).map(d=>d.bp)}
   game.cur=(game.cur+1)%game.players.length;
   game.turnStart=game.players[game.cur].score;game.turn=[];
   render();setMsg("À "+game.players[game.cur].name+" de jouer","");voice.say("À "+game.players[game.cur].name,game.players[game.cur].name+" to throw");
@@ -638,7 +639,7 @@ function refineH(pts,S,rm,gm,W,Hh){
 const video=$("video"),view=$("view"),vctx=view.getContext("2d");
 let stream=null,track=null,vw=0,vh=0,calibrating=false,tmpPts=null,drag=-1,loopOn=false,demo=null,frozen=null;
 let hwZoom=null,zoomVal=settings.zoom||1,dz=1,pcx=0,pcy=0;
-function tipMode(){return demo?"bottom":settings.tip}
+function tipMode(){return demo&&demo.real?"bottom":(settings.tip||"auto")}
 function setStatus(t,k){$("status").textContent=t;$("dot").className="dot"+(k?" "+k:"")}
 
 /* frame (display canvas) <-> video coordinates, digital zoom/pan */
@@ -857,14 +858,18 @@ const det={
   off:[0,0],lostN:0,TW:128,TH:0,MG:0,EW:0,EH:0,tctx:null,tpl:null,
   setup(src){
     let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
-    for(let i=0;i<48;i++){const a=i/48*2*Math.PI;const[x,y]=applyH(Hi,240*Math.sin(a),-240*Math.cos(a));x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y)}
+    for(let i=0;i<48;i++){const a=i/48*2*Math.PI;const[x,y]=applyH(Hi,280*Math.sin(a),-280*Math.cos(a));x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y)}
     this.bx=x0;this.by=y0;this.bw=Math.max(8,x1-x0);this.bh=Math.max(8,y1-y0);
-    const sc=Math.min(1,360/Math.max(this.bw,this.bh));
+    const sc=Math.min(1,420/Math.max(this.bw,this.bh));
     this.PW=Math.max(16,Math.round(this.bw*sc));this.PH=Math.max(16,Math.round(this.bh*sc));
     const c=document.createElement("canvas");c.width=this.PW;c.height=this.PH;this.ctx=c.getContext("2d",{willReadFrequently:true});
     this.dbg=document.createElement("canvas");this.dbg.width=this.PW;this.dbg.height=this.PH;this.dbgCtx=this.dbg.getContext("2d");this.dbgImg=this.dbgCtx.createImageData(this.PW,this.PH);
     this.mask=new Uint8Array(this.PW*this.PH);this.maskN=0;
-    for(let y=0;y<this.PH;y++)for(let x=0;x<this.PW;x++){const[vx,vy]=this.p2v(x+.5,y+.5);const[bx,by]=applyH(H,vx,vy);if(Math.hypot(bx,by)<186){this.mask[y*this.PW+x]=1;this.maskN++}}
+    for(let y=0;y<this.PH;y++)for(let x=0;x<this.PW;x++){const[vx,vy]=this.p2v(x+.5,y+.5);const[bx,by]=applyH(H,vx,vy);if(Math.hypot(bx,by)<270&&vx>2&&vy>2&&vx<vw-2&&vy<vh-2){this.mask[y*this.PW+x]=1;this.maskN++}}
+    this.edge=new Uint8Array(this.PW*this.PH);const PW=this.PW,PH=this.PH;
+    for(let y=0;y<PH;y++)for(let x=0;x<PW;x++){const i=y*PW+x;if(!this.mask[i])continue;let e=x<3||y<3||x>=PW-3||y>=PH-3;
+      for(let dy=-3;dy<=3&&!e;dy++)for(let dx=-3;dx<=3;dx++){const nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<PW&&ny<PH&&!this.mask[ny*PW+nx]){e=true;break}}if(e)this.edge[i]=1}
+    this.mm=PW/560; // pixels de traitement par mm de cible (approx.)
     // tracking template (gradient image of the board area, low resolution)
     this.TH=Math.max(16,Math.round(this.TW*this.bh/this.bw));this.MG=Math.round(this.TW*.25);
     this.EW=this.TW+2*this.MG;this.EH=this.TH+2*this.MG;
@@ -874,7 +879,7 @@ const det={
     this.off=[0,0];this.lostN=0;this.resetRef();
   },
   p2v(x,y){return[this.bx+x*this.bw/this.PW,this.by+y*this.bh/this.PH]},
-  resetRef(){this.ref=null;this.refG=null;this.prev=null;this.empty=null;this.nz=null;this.seenN=0;this.idleN=0;this.removing=0;this.phase="attente";this.stable=0},
+  resetRef(){this.ref=null;this.refG=null;this.prev=null;this.empty=null;this.nz=null;this.seenN=0;this.idleN=0;this.removing=0;this.handSeen=0;this.stillHand=0;this.phase="attente";this.stable=0},
   grabTo(ctx,src,sx,sy,sw,sh,w,h){ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);ctx.drawImage(src,sx,sy,sw,sh,0,0,w,h);return ctx.getImageData(0,0,w,h).data},
   gray(d,n){const g=new Float32Array(n);for(let i=0,j=0;i<n;i++,j+=4)g[i]=d[j]*.299+d[j+1]*.587+d[j+2]*.114;return g},
   grad(g,w,h){const o=new Float32Array(w*h);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;o[i]=Math.abs(g[i+1]-g[i-1])+Math.abs(g[i+w]-g[i-w])}return o},
@@ -936,6 +941,7 @@ const det={
     this.lostN=0;this.fine();
     const cur=this.grabTo(this.ctx,video,this.bx+this.off[0],this.by+this.off[1],this.bw,this.bh,this.PW,this.PH);
     const N=this.PW*this.PH;
+    {const kx=this.PW/this.bw,ky=this.PH/this.bh,mg=8;this.vb=[Math.ceil((mg-this.bx-this.off[0])*kx),Math.floor((vw-mg-this.bx-this.off[0])*kx),Math.ceil((mg-this.by-this.off[1])*ky),Math.floor((vh-mg-this.by-this.off[1])*ky)]}
     if(!this.ref){this.setRef(cur);this.empty=cur;this.prev=cur;this.nz=new Float32Array(N).fill(3);this.learn=0;return}
     if(!this.prev)this.prev=cur;
     const t=this.thr(),m=this.mask,idle=this.phase==="attente";
@@ -949,7 +955,7 @@ const det={
     const dbg=this.debug?this.dbgImg.data:null;
     for(let i=0,j=0;i<N;i++,j+=4){
       bin[i]=0;binP[i]=0;if(dbg)dbg[j+3]=0;
-      if(!m[i])continue;
+      if(!m[i]||!this.inV(i))continue;
       if(this.rdiff(cur,rA,i,j,t)){bin[i]=1;cR++;if(dbg){dbg[j]=255;dbg[j+1]=40;dbg[j+2]=60;dbg[j+3]=200}}
       if(!idle&&this.rdiff(cur,pA,i,j,t)){binP[i]=1;cP++}
     }
@@ -959,10 +965,14 @@ const det={
     const minP=this.minPix(),W=this.PW;
     // plus grosse tache compacte (une bande de lumière ou un tremblement couvrent toute la cible : ignorés)
     const compact=c=>c.x1-c.x0<W*.55&&c.y1-c.y0<this.PH*.55;
-    let big=0;if(cR>=minP*.7){const cs=this.blobs(bin,minP*.5).filter(compact);big=cs.length?cs[0].n:0}
+    let big=0,hand=false;if(cR>=minP*.7){const cs=this.blobs(bin,minP*.5);hand=cs.some(c=>this.isHand(c));const cc=cs.filter(c=>compact(c)&&!this.isHand(c));big=cc.length?cc[0].n:0}
     this.lastCR=big;
+    if(hand)this.handSeen=Date.now();
+    if(idle&&!hand&&big<minP&&((this.handSeen&&Date.now()-this.handSeen>300)||((this.removing||this.pendingRemoval||(game.turn.length&&locked()))&&Date.now()-(this.lastChk||0)>1200))){
+      this.lastChk=Date.now();this.analyze(cur,cR,minP,t);return}
     if(idle){
-      if(big>=minP){this.seenN=(this.seenN||0)+1;if(this.seenN>=2){this.phase="analyse";this.stable=0;this.settleT=Date.now();this.seenN=0;setStatus("Analyse…","busy")}}
+      if(hand){this.seenN=0;this.phase="analyse";this.stable=0;this.settleT=Date.now();setStatus("Main devant la cible…","busy")}
+      else if(big>=minP){this.seenN=(this.seenN||0)+1;if(this.seenN>=2){this.phase="analyse";this.stable=0;this.settleT=Date.now();this.seenN=0;setStatus("Analyse…","busy")}}
       else{this.seenN=0;this.idleN=(this.idleN||0)+1;
         if(this.idleN>=4){this.idleN=0;this.setRef(cur);if(!game.turn.length&&!this.pendingRemoval&&!this.removing)this.empty=cur}}
     }else{
@@ -973,6 +983,27 @@ const det={
       if(this.stable>=2||el>2500){this.phase="attente";this.analyze(cur,cR,minP,t)}
     }
     if(this.removing&&Date.now()-this.removing>8000)this.removing=0;
+  },
+  isHand(c){ // main, bras, ombre du joueur : trop gros pour une fléchette, ou entre par le bord avec une forme épaisse
+    const mm2=c.n/(this.mm*this.mm);if(mm2>3000)return true;
+    let e=0;for(const p of c.pix)if(this.isEdge(p)){e++;if(e>=3)break}
+    if(e<3||mm2<700)return false;
+    const len=Math.hypot(c.x1-c.x0,c.y1-c.y0)/this.mm+1;return mm2/len>22;
+  },
+  isGone(bp,bE){let k=0;for(const p of bp)if(bE[p])k++;return k<bp.length*.25},
+  shadow(cur,ref,j){ // pixel simplement assombri (ombre d'une fléchette, du joueur) : même teinte, plus sombre
+    const r0=ref[j],g0=ref[j+1],b0=ref[j+2];if(r0+g0+b0<90)return false;
+    const a=cur[j]/(r0+1),b=cur[j+1]/(g0+1),c=cur[j+2]/(b0+1),mx=a>b?(a>c?a:c):(b>c?b:c),mn=a<b?(a<c?a:c):(b<c?b:c);
+    return mx<.93&&mn>.3&&mx-mn<.13;
+  },
+  inV(i){const v=this.vb;if(!v)return true;const x=i%this.PW,y=(i/this.PW)|0;return x>=v[0]&&x<=v[1]&&y>=v[2]&&y<=v[3]},
+  isEdge(p){if(this.edge[p])return true;const v=this.vb;if(!v)return false;const x=p%this.PW,y=(p/this.PW)|0;return x<v[0]+3||x>v[1]-3||y<v[2]+3||y>v[3]-3},
+  touchesEdge(c){let e=0;for(const p of c.pix)if(this.isEdge(p)&&++e>=3)return true;return false},
+  endTurn(){ // fléchettes retirées : les fléchettes non vues (hors cible, rebond, mur) comptent comme ratées
+    const n=3-game.turn.length;let k=0;
+    for(let i=0;i<n&&!locked();i++){game.turn.push(Object.assign(mk(0,0),{auto:true,pad:true}));k++}
+    if(k)voice.say(k===1?"Une ratée":k+" ratées",k===1?"One miss":k+" misses");
+    nextTurn(true);
   },
   norm(refArr,cur){ // compense les changements de luminosité automatiques de la caméra
     const m=this.mask,N=this.PW*this.PH;let a0=0,a1=0,a2=0,b0=0,b1=0,b2=0;
@@ -986,27 +1017,41 @@ const det={
   analyze(cur,cR,minP,t){
     const m=this.mask,W=this.PW,N=W*this.PH,eA=this.norm(this.empty,cur),rA=this.norm(this.ref,cur);
     const bE=new Uint8Array(N),bR=new Uint8Array(N);let nR=0;
-    for(let i=0,j=0;i<N;i++,j+=4){if(!m[i])continue;if(this.rdiff(cur,eA,i,j,t))bE[i]=1;if(this.rdiff(cur,rA,i,j,t)){bR[i]=1;nR++}}
-    const cpt=c=>c.x1-c.x0<W*.55&&c.y1-c.y0<this.PH*.55,cE=this.blobs(bE,minP*.5).filter(cpt),bigE=cE.length?cE[0].n:0;
+    for(let i=0,j=0;i<N;i++,j+=4){if(!m[i]||!this.inV(i))continue;if(this.rdiff(cur,eA,i,j,t)&&!this.shadow(cur,eA,j))bE[i]=1;if(this.rdiff(cur,rA,i,j,t)){nR++;if(!this.shadow(cur,rA,j))bR[i]=1}}
+    const cpt=c=>c.x1-c.x0<W*.55&&c.y1-c.y0<this.PH*.55,cE=this.blobs(bE,minP*.5).filter(c=>cpt(c)&&!this.touchesEdge(c)&&c.n/(this.mm*this.mm)<2600),bigE=cE.length?cE[0].n:0;
     // 0) main ou gros objet devant la cible : on attend qu'il parte, sans rien compter
     const allR=this.blobs(bR,minP*.5);
-    if(nR>this.maskN*.22||(allR.length&&allR[0].n>this.maskN*.05)){setStatus("Main devant la cible…","busy");return}
+    if(nR>this.maskN*.22||allR.some(c=>this.isHand(c))){
+      this.handSeen=Date.now();
+      // immobile depuis un moment : ce n'est pas une main mais un changement durable (lumière, objet posé) -> nouvelle référence
+      if(this.stable>=2){if(!this.stillHand)this.stillHand=Date.now();else if(Date.now()-this.stillHand>4000){this.stillHand=0;this.setRef(cur);setStatus("Changement de l'image ignoré","on");return}}else this.stillHand=0;
+      setStatus("Main devant la cible…","busy");return}
+    this.stillHand=0;
+    const hadHand=this.handSeen;this.handSeen=0;
     // les fléchettes de ce tour sont-elles encore plantées ? (on regarde autour de chaque pointe)
-    const tips=this.pendingRemoval?(this.pendPP||[]):game.turn.filter(o=>o.pp).map(o=>o.pp);
-    const gone=tips.length>0&&tips.every(pp=>{const r=Math.max(3,Math.round(W*.025)),cx=Math.round(pp[0]),cy=Math.round(pp[1]);let k=0,n=0;
-      for(let y=cy-r;y<=cy+r;y++)for(let x=cx-r;x<=cx+r;x++){if(x<0||y<0||x>=W||y>=this.PH)continue;n++;if(bE[y*W+x])k++}return k<n*.15});
+    const tips=this.pendingRemoval?(this.pendPP||[]):game.turn.filter(o=>o.bp).map(o=>o.bp);
+    const gone=tips.length>0&&tips.every(bp=>this.isGone(bp,bE));
     // 1) la cible est redevenue vide : fléchettes retirées
     if(bigE<minP*.8||(gone&&(this.removing||this.pendingRemoval||locked()))){
       this.setRef(cur);this.empty=cur;const wasRemoving=this.removing;this.removing=0;
       if(this.pendingRemoval){this.pendingRemoval=false;setStatus("Cible vide, à toi de jouer","on");return}
-      if(game.turn.length&&!game.over){setStatus("Fléchettes retirées, joueur suivant","on");nextTurn(true);return}
+      if(game.turn.length&&!game.over){setStatus("Fléchettes retirées, joueur suivant","on");this.endTurn();return}
       setStatus(wasRemoving?"Cible vide":"En attente d'une fléchette","on");return;
+    }
+    // 2) une main est passée devant la cible : on ne compte RIEN (on ne lance pas avec la main sur la cible)
+    if(hadHand){
+      this.setRef(cur);
+      const turnTips=this.pendingRemoval?(this.pendPP||[]):game.turn.filter(o=>o.bp).map(o=>o.bp);
+      const someGone=turnTips.some(bp=>this.isGone(bp,bE));
+      if(someGone||this.removing){this.removing=Date.now();setStatus("Retrait des fléchettes…","busy");return}
+      setStatus("Main retirée, rien compté","on");return;
     }
     // 3) taches nouvelles par rapport à l'état précédent
     const cs=this.blobs(bR,minP*.5).filter(c=>c.n>=minP*.8);
     const added=[];let removed=0;
     for(const c of cs){
       if(c.x1-c.x0>W*.55||c.y1-c.y0>this.PH*.55)continue; // trop étalé : tremblement, pas une fléchette
+      if(c.n/(this.mm*this.mm)>2600||this.touchesEdge(c))continue; // trop gros ou venu du bord : pas une fléchette
       let k=0;for(const p of c.pix)if(bE[p])k++;
       if(k>c.n*.5)added.push(c);else removed++;
     }
@@ -1022,16 +1067,17 @@ const det={
     }
     this.setRef(cur);
     if(!added.length){setStatus("En attente d'une fléchette","on");return}
+    if(added.length>3){setStatus("Changement de lumière ignoré","on");return}
     if(this.removing){setStatus("Retire toutes les fléchettes…","busy");return}
     if(this.pendingRemoval||locked()){setStatus("Retire les fléchettes pour continuer","busy");return}
     let hits=0;
     for(const c of added.slice(0,3)){
       if(locked())break;
       const blob=this.blobFull(c.pix,cur,rA,t);
-      const[tx,ty]=this.tip(blob);
+      const[tx,ty]=this.tip(blob,cur,rA,t);
       const[vx,vy]=this.p2v(tx+.5,ty+.5),[bx,by]=applyH(H,vx,vy);
-      if(game.turn.some(o=>o.b&&Math.hypot(o.b[0]-bx,o.b[1]-by)<5))continue;
-      const d=scoreAt(bx,by);d.auto=true;d.pt=[vx,vy];d.b=[bx,by];d.pp=[tx,ty];
+      if(game.turn.some(o=>o.b&&Math.hypot(o.b[0]-bx,o.b[1]-by)<6))continue;
+      const d=scoreAt(bx,by);d.auto=true;d.pt=[vx,vy];d.b=[bx,by];d.pp=[tx,ty];d.bp=c.pix.filter((p,k)=>k%Math.max(1,Math.floor(c.n/160))===0);
       if(addDart(d)){hits++;flashDart(game.turn.length-1);setStatus("Touché : "+lab(d)+" ("+d.value+")","hit")}
     }
     if(hits){try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}}
@@ -1071,29 +1117,67 @@ const det={
     let x0=W,y0=Hh,x1=0,y1=0;for(const p of core){const x=p%W,y=(p/W)|0;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}
     const pad=Math.round(W*.12);x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(W,x1+pad+1);y1=Math.min(Hh,y1+pad+1);
     const fb=new Uint8Array(N);
-    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=y*W+x;if(m[i]&&this.diff(cur,ref,i*4)>t+E[i])fb[i]=1}
-    for(const p of core)fb[p]=1;
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=y*W+x;if(m[i]&&this.diff(cur,ref,i*4)>t+E[i]&&!this.shadow(cur,ref,i*4))fb[i]=1}
+    for(const p of core)fb[p]=1; // (le cœur est déjà sans ombre)
     const full=this.comps(fb,W,Hh,x0,y0,x1,y1);
     return(full&&full.length>=core.length&&full.length<core.length*4)?full:core;
   },
-  tip(blob){
-    const W=this.PW;let mx=0,my=0;for(const p of blob){mx+=p%W;my+=(p/W)|0}mx/=blob.length;my/=blob.length;
-    let sxx=0,syy=0,sxy=0;for(const p of blob){const x=p%W-mx,y=((p/W)|0)-my;sxx+=x*x;syy+=y*y;sxy+=x*y}
-    const ang=.5*Math.atan2(2*sxy,sxx-syy),ex=Math.cos(ang),ey=Math.sin(ang);
-    let mn=1e9,mxp=-1e9,A=null,B=null;
-    for(const p of blob){const x=p%W,y=(p/W)|0,pr=(x-mx)*ex+(y-my)*ey;if(pr<mn){mn=pr;A=[x,y]}if(pr>mxp){mxp=pr;B=[x,y]}}
-    const tm=tipMode();
-    if(tm==="bottom")return A[1]>B[1]?A:B;
-    if(tm==="top")return A[1]<B[1]?A:B;
-    const[cvx,cvy]=applyH(Hi,0,0),cx=(cvx-this.bx)*this.PW/this.bw,cy=(cvy-this.by)*this.PH/this.bh;
-    return Math.hypot(A[0]-cx,A[1]-cy)<Math.hypot(B[0]-cx,B[1]-cy)?A:B;
+  tip(blob,cur,ref,t){
+    // La pointe métallique = l'endroit où la fléchette entre dans la cible. Vu de biais, le reste de la fléchette
+    // (fût, empennage) est décalé dans une direction connue grâce à la perspective : on prend le bout de la fléchette
+    // situé de ce côté, puis on suit la fine pointe en métal jusqu'au bout.
+    const W=this.PW,Hh=this.PH,n=blob.length;let mx=0,my=0;for(const p of blob){mx+=p%W;my+=(p/W)|0}mx/=n;my/=n;
+    const pca=(pts)=>{let ax=0,ay=0;for(const[x,y]of pts){ax+=x;ay+=y}ax/=pts.length;ay/=pts.length;let sxx=0,syy=0,sxy=0;
+      for(const[x,y]of pts){sxx+=(x-ax)**2;syy+=(y-ay)**2;sxy+=(x-ax)*(y-ay)}const k=pts.length,tr=(sxx+syy)/k,dt=Math.sqrt(Math.max(0,((sxx-syy)/k)**2/4+(sxy/k)**2));
+      const a=.5*Math.atan2(2*sxy,sxx-syy);return{ex:Math.cos(a),ey:Math.sin(a),el:Math.sqrt((tr/2+dt)/Math.max(.25,tr/2-dt)),cx:ax,cy:ay}};
+    const P=blob.map(p=>[p%W,(p/W)|0]),g=pca(P);
+    // direction "vers la pointe"
+    const tm=tipMode();let u=null;
+    if(tm==="bottom")u=[0,1];else if(tm==="top")u=[0,-1];
+    else if(tm==="center"){const[cvx,cvy]=applyH(Hi,0,0),cx=(cvx-this.bx)*W/this.bw-mx,cy=(cvy-this.by)*Hh/this.bh-my,l=Math.hypot(cx,cy)||1;u=[cx/l,cy/l]}
+    else{const pv=this.persp(mx,my);
+      if(pv){ // pointe = côté téléphone (perspective) ; l'empennage tombe aussi un peu vers le bas (gravité)
+        const tt=pv.k*.3,vx=pv.u[0]*150*tt,vy=pv.u[1]*150*tt-18*this.PH/this.bh*this.bw/this.PW,l=Math.hypot(vx,vy);u=[vx/l,vy/l]}
+      else u=[0,-1]; // téléphone pile en face : l'empennage tombe sous la pointe
+    }
+    if(!u)return[Math.round(mx),Math.round(my)]; // vue de face : la pointe est sous l'empennage
+    // étendue de la fléchette dans cette direction
+    let mn=1e9,mxp=-1e9;const pr=P.map(([x,y])=>{const v=x*u[0]+y*u[1];if(v<mn)mn=v;if(v>mxp)mxp=v;return v});
+    const L=mxp-mn;
+    // axe local près de la pointe (fût) pour suivre la pointe même si la fléchette penche
+    const near=P.filter((q,k)=>pr[k]>mxp-Math.max(4,L*.35));let dx=u[0],dy=u[1];
+    if(near.length>=6){const a=pca(near);if(a.el>2){const sgn=a.ex*u[0]+a.ey*u[1]>=0?1:-1,ax=a.ex*sgn,ay=a.ey*sgn;if(ax*u[0]+ay*u[1]>.6){dx=ax;dy=ay}}}
+    // centre du bout (pas un coin)
+    let tx=0,ty=0,tn=0;P.forEach(([x,y],k)=>{if(pr[k]>=mxp-1.6){tx+=x;ty+=y;tn++}});tx/=tn;ty/=tn;
+    if(!cur||!ref)return[Math.round(tx),Math.round(ty)];
+    // on suit la fine pointe en métal (souvent trop fine pour la première détection)
+    const tl=Math.max(8,t*.38),maxS=Math.max(3,Math.round(Math.max(L,8)*.25)),m=this.mask,nz=this.nz;let last=0,miss=0;
+    for(let st=1;st<=maxS;st++){let hit=false;
+      for(const o of[0,-1,1]){const x=Math.round(tx+dx*st-dy*o),y=Math.round(ty+dy*st+dx*o);if(x<0||y<0||x>=W||y>=Hh)continue;const i=y*W+x;
+        if(m[i]&&this.diff(cur,ref,i*4)>tl+(nz?Math.min(14,nz[i]*.5):0)&&!this.shadow(cur,ref,i*4)){hit=true;break}}
+      if(hit){last=st;miss=0}else if(++miss>2)break}
+    const ext=last>=1?last:Math.min(L*.06,4);
+    return[Math.round(tx+dx*ext),Math.round(ty+dy*ext)];
+  },
+  persp(mx,my){ // direction (dans l'image de traitement) vers laquelle se trouve la pointe, d'après l'inclinaison du téléphone
+    if(!H||!Hi)return null;const[vx,vy]=this.p2v(mx,my),[bx,by]=applyH(H,vx,vy);
+    const e=2,[x0,y0]=applyH(Hi,bx,by),[x1,y1]=applyH(Hi,bx+e,by),[x2,y2]=applyH(Hi,bx,by+e);
+    const sx=this.PW/this.bw,sy=this.PH/this.bh,a=(x1-x0)*sx/e,c=(y1-y0)*sy/e,b=(x2-x0)*sx/e,d=(y2-y0)*sy/e;
+    // valeurs singulières du jacobien : rapport = cos(inclinaison)
+    const p=a*a+c*c,q=a*b+c*d,r=b*b+d*d,tr=p+r,dd=Math.sqrt(Math.max(0,(p-r)*(p-r)/4+q*q)),s1=Math.sqrt(tr/2+dd),s2=Math.sqrt(Math.max(0,tr/2-dd));
+    const cs=s2/s1,tanT=Math.sqrt(Math.max(0,1-cs*cs))/Math.max(.2,cs);
+    // côté le plus proche du téléphone = là où la cible paraît la plus grande (w grandit)
+    const w=v=>Math.abs(H[6]*v[0]+H[7]*v[1]+H[8]);
+    const gx=(w([vx+1,vy])-w([vx-1,vy]))/2/sx,gy=(w([vx,vy+1])-w([vx,vy-1]))/2/sy,gl=Math.hypot(gx,gy);
+    if(!gl)return null;
+    return{u:[gx/gl,gy/gl],k:Math.min(1,tanT/.3)};
   }
 };
 
 /* ---------- demo: virtual board, virtual darts, simulated hand shake ---------- */
 $("demoBtn").onclick=()=>{voice.prime();
   const C=document.createElement("canvas");C.width=960;C.height=720;const g=C.getContext("2d");
-  const s=240/170,cx=480,cy=360;demo={s,cx,cy};
+  const s=240/170,cx=480,cy=360;demo={s,cx,cy,real:true};
   const B=document.createElement("canvas");B.width=B.height=760;const b=B.getContext("2d"),bc=380;
   const wedge=(r1,r2,i,col)=>{const a0=(i*18-9-90)*Math.PI/180,a1=a0+18*Math.PI/180;b.beginPath();b.arc(bc,bc,r2*s,a0,a1);b.arc(bc,bc,r1*s,a1,a0,true);b.closePath();b.fillStyle=col;b.fill()};
   b.fillStyle="#151515";b.beginPath();b.arc(bc,bc,225*s,0,7);b.fill();
