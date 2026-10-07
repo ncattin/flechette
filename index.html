@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fléchette</title>
+<meta name="description" content="Fléchette : compte tes fléchettes automatiquement avec la caméra de ton téléphone.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0B111D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fléchette">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;1,700;1,800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Direction : habillage télé des grands tournois (barres inclinées, chiffres italiques condensés)
+   + couleurs de la cible : sisal crème, rouge des triples, vert des doubles, or des surbrillances. */
+:root{
+  --night:#0B111D; --deck:#141C2C; --deck2:#1B2538; --line:#2A3650;
+  --cream:#F6EEDC; --muted:#8F9AB2; --faint:#5F6B85;
+  --gold:#FFC23C; --gold2:#E9A514; --red:#E5263E; --green:#19A35B;
+  --display:"Barlow Condensed","Arial Narrow","Roboto Condensed",Impact,sans-serif;
+  --body:"Barlow","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --slant:10px;
+  --r-lg:18px; --r-md:12px; --r-sm:9px;
+  color-scheme:dark;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--night)}
+body{background:
+    radial-gradient(90% 55% at 50% -8%,rgba(255,194,60,.10) 0%,transparent 60%),
+    radial-gradient(70% 50% at 100% 100%,rgba(229,38,62,.07) 0%,transparent 70%),
+    var(--night);
+  background-attachment:fixed;
+  color:var(--cream);font-family:var(--body);font-size:16px;line-height:1.4;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+button:active:not(:disabled){transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){button:active:not(:disabled){transform:none}}
+.num{font-family:var(--display);font-style:italic;font-weight:800;font-variant-numeric:tabular-nums}
+
+/* ---------- structure ---------- */
+.app{max-width:560px;margin:0 auto;padding:10px 14px 22px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));
+  display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"top" "stage" "board";gap:12px}
+.top{grid-area:top;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.stage{grid-area:stage;display:flex;flex-direction:column;gap:8px;min-width:0}
+.board{grid-area:board;display:flex;flex-direction:column;gap:10px;min-width:0}
+
+h1{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.9rem;letter-spacing:.005em;margin:0;line-height:1;display:flex;align-items:center;gap:.32em}
+/* logo : une vraie petite cible (20 secteurs, anneaux double et triple) */
+h1 .mark{position:relative;width:.95em;height:.95em;border-radius:50%;flex:none;
+  background:
+    radial-gradient(circle,var(--red) 0 9%,var(--green) 10% 19%,transparent 20% 56%,rgba(0,0,0,0) 56%),
+    radial-gradient(circle,transparent 0 55%,var(--red) 56% 63%,transparent 64% 88%,var(--green) 89% 96%,#0d0d0d 97%),
+    repeating-conic-gradient(from -9deg,#141414 0 18deg,var(--cream) 18deg 36deg);
+  box-shadow:0 0 0 2px #0d0d0d,0 4px 14px -4px rgba(255,194,60,.45)}
+.iconbtn{display:inline-flex;align-items:center;gap:7px;background:var(--deck);border:1px solid var(--line);border-radius:999px;padding:8px 15px 8px 11px;font-weight:600;font-size:.95rem}
+.iconbtn svg{width:18px;height:18px;color:var(--gold)}
+
+/* ---------- caméra ---------- */
+.camwrap{display:flex;justify-content:center}
+.cam{position:relative;background:#04070D;border-radius:var(--r-lg);overflow:hidden;aspect-ratio:4/3;
+  width:min(100%,calc(46svh * var(--ar,1.3333)));box-shadow:0 0 0 1px var(--line),0 18px 40px -20px #000}
+.cam canvas{display:block;width:100%;height:100%;touch-action:none}
+.cam video{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+.camoff{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:14px;
+  background:radial-gradient(circle at 50% 38%,rgba(255,194,60,.13) 0%,transparent 45%),radial-gradient(circle at 50% 42%,#18223A 0%,#05080F 72%)}
+.camoff .target{flex:none;width:clamp(44px,12svh,80px);height:clamp(44px,12svh,80px);border-radius:50%;margin-bottom:2px;
+  background:
+    radial-gradient(circle,var(--red) 0 7%,var(--green) 8% 15%,transparent 16% 46%,var(--red) 47% 53%,transparent 54% 76%,var(--green) 77% 83%,#0d0d0d 84%),
+    repeating-conic-gradient(from -9deg,#141414 0 18deg,var(--cream) 18deg 36deg);
+  box-shadow:0 0 0 3px #0d0d0d,0 0 0 4px rgba(255,194,60,.35),0 14px 40px -8px rgba(255,194,60,.35)}
+@media (prefers-reduced-motion:no-preference){.camoff .target{animation:spin 40s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}}
+.camoff p{margin:0;max-width:34ch;color:var(--muted);font-size:.86rem}
+.camoff .btn{padding:11px 8px}
+.camoff .btn{min-width:220px;flex:none}
+.pill{position:absolute;left:10px;top:10px;background:rgba(6,10,18,.74);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:var(--cream);
+  border-radius:999px;padding:6px 13px 6px 10px;font-size:.85rem;font-weight:500;display:flex;align-items:center;gap:8px;max-width:calc(100% - 20px);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 0 0 1px rgba(255,255,255,.07)}
+.pill #status{overflow:hidden;text-overflow:ellipsis}
+.dot{width:9px;height:9px;border-radius:50%;background:#7a849a;flex:none}
+.dot.on{background:var(--green);box-shadow:0 0 0 3px rgba(25,163,91,.25)} .dot.busy{background:var(--gold)} .dot.hit{background:var(--red);box-shadow:0 0 0 3px rgba(229,38,62,.3)}
+
+.tools{display:flex;flex-direction:column;gap:8px}
+.zoomrow{display:flex;align-items:center;gap:12px;background:var(--deck);border:1px solid var(--line);border-radius:999px;padding:5px 14px 5px 16px}
+.zoomrow label{font-weight:600;font-size:.9rem;color:var(--muted)}
+.zoomrow input{flex:1;min-width:0}
+.zoomrow output{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.3rem;min-width:3ch;text-align:right;color:var(--gold)}
+.camtools{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px}
+.camtools::-webkit-scrollbar{display:none}
+.camtools button{flex:none;background:transparent;border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:.86rem;font-weight:500;color:var(--muted);white-space:nowrap}
+.camtools button[aria-pressed="true"]{border-color:rgba(25,163,91,.6);color:var(--cream);background:rgba(25,163,91,.13)}
+.camtools button[aria-pressed="true"]::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:7px;vertical-align:1px}
+.calibbar{display:none;background:var(--deck);border:1px solid var(--gold);border-radius:var(--r-md);padding:12px;gap:10px;flex-direction:column}
+.calibbar.show{display:flex}
+.calibbar p{margin:0;font-size:.92rem;color:var(--muted)}
+.calibbar b{color:var(--cream)}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+
+/* ---------- joueurs : bandeau de classement façon télé ---------- */
+.players{flex:none;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 2px 0}
+.players::-webkit-scrollbar{display:none}
+.pcard{flex:1 0 108px;position:relative;border:none;background:var(--deck);padding:8px 14px 9px 22px;text-align:left;overflow:hidden;
+  clip-path:polygon(var(--slant) 0,100% 0,calc(100% - var(--slant)) 100%,0 100%)}
+.pcard::before{content:"";position:absolute;left:2px;top:0;bottom:0;width:3px;background:var(--line);transform:skewX(-11deg);transform-origin:bottom}
+.pcard .n{font-size:.84rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.pcard .s{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.8rem;line-height:1;margin-top:1px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pcard.cur{background:linear-gradient(100deg,var(--deck2),#22304A)}
+.pcard.cur::before{background:var(--gold);width:4px}
+.pcard.cur .n{color:var(--gold);font-weight:600}
+.pcard.cur .s{color:var(--cream)}
+
+/* ---------- tour en cours : la barre de score ---------- */
+.turn{position:relative;overflow:hidden;background:linear-gradient(160deg,#1C2740 0%,var(--deck) 55%,#111827 100%);border:1px solid var(--line);border-radius:var(--r-lg);padding:0 14px 12px;display:flex;flex-direction:column;gap:12px;
+  box-shadow:0 24px 50px -30px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.05)}
+/* filigrane : secteurs de la cible qui dépassent à droite */
+.turn::before{content:"";position:absolute;width:260px;height:260px;right:-130px;top:-130px;border-radius:50%;pointer-events:none;opacity:.05;
+  background:repeating-conic-gradient(from -9deg,var(--cream) 0 18deg,transparent 18deg 36deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 22%,#000 23% 100%);mask:radial-gradient(circle,transparent 0 22%,#000 23% 100%)}
+.turn>*{position:relative}
+.turnhead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.who{display:inline-block;margin-left:-14px;background:var(--gold);color:#1A1405;font-family:var(--display);font-style:italic;font-weight:800;font-size:1.05rem;letter-spacing:.02em;
+  padding:5px 24px 5px 14px;clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%);max-width:calc(100% + 14px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.big{font-family:var(--display);font-style:italic;font-weight:800;font-size:clamp(5rem,25vw,7.4rem);line-height:.82;letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin-top:8px;
+  color:var(--cream);text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 40px rgba(255,194,60,.12)}
+.big.bust{color:var(--red);text-shadow:0 0 30px rgba(229,38,62,.35)}
+.sub{color:var(--muted);font-size:.86rem;text-align:right;line-height:1.35;padding-top:12px}
+.sub .ts{font-family:var(--display);font-style:italic;font-weight:800;font-size:2.1rem;line-height:1;color:var(--gold);display:block;font-variant-numeric:tabular-nums}
+.co{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:0}
+.co:empty{display:none}
+.co .k{font-size:.8rem;color:var(--muted);font-weight:500}
+.co .t{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.15rem;line-height:1;padding:4px 12px 4px 10px;background:rgba(255,194,60,.12);color:var(--gold);
+  clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)}
+.co .t.d{background:rgba(25,163,91,.18);color:#5BD892}
+.co .t.tr{background:rgba(229,38,62,.17);color:#FF7A8A}
+.darts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.dart{position:relative;border:none;background:rgba(255,255,255,.035);min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px 8px;overflow:hidden;
+  clip-path:polygon(var(--slant) 0,100% 0,calc(100% - var(--slant)) 100%,0 100%)}
+.dart.filled{background:linear-gradient(180deg,#232F48,#18213380)}
+.dart.filled::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--cream)}
+.dart.m3::after{background:var(--red)} .dart.m2::after{background:var(--green)} .dart.m0::after{background:var(--faint)}
+.dart.m3 .l{color:#FF8796} .dart.m2 .l{color:#6BE09F}
+.dart.m0 .l{color:var(--muted)}
+.dart .l{font-family:var(--display);font-style:italic;font-weight:800;font-size:2rem;line-height:1}
+.dart .v{font-size:.78rem;color:var(--muted)}
+.dart .tag{font-size:.66rem;color:var(--faint)}
+.dart:not(.filled) .v{font-family:var(--display);font-style:italic;font-weight:700;font-size:1.5rem;color:var(--faint);line-height:1}
+.msg{min-height:1.4em;font-weight:600;text-align:center;font-size:.95rem;color:var(--cream)}
+.msg.red{color:var(--red)} .msg.green{color:#5BD892}
+.actions{display:grid;grid-template-columns:1fr 1fr 1.35fr;gap:8px}
+.btn{border:1px solid var(--line);background:var(--deck2);border-radius:var(--r-md);padding:13px 8px;font-weight:600;font-size:.98rem;white-space:nowrap}
+.btn.primary{background:linear-gradient(180deg,var(--gold),var(--gold2));border-color:transparent;color:#1A1405;font-weight:700;box-shadow:0 10px 22px -12px var(--gold)}
+.btn.go{background:var(--green);border-color:var(--green);color:#fff}
+.btn.ghost{background:rgba(255,255,255,.04);color:var(--cream);border-color:var(--line)}
+.btn:disabled{opacity:.4;cursor:default;box-shadow:none}
+.hint{font-size:.82rem;color:var(--faint);margin:0;text-align:center}
+
+/* ---------- fenêtres ---------- */
+.sheet{position:fixed;inset:0;background:rgba(3,6,12,.66);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.sheet.show{display:flex}
+.panel{background:linear-gradient(180deg,#1A2338,var(--deck));width:100%;max-width:560px;border-radius:24px 24px 0 0;border:1px solid var(--line);border-bottom:none;
+  padding:10px 16px calc(16px + env(safe-area-inset-bottom,0px));max-height:90dvh;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.panel::before{content:"";align-self:center;width:38px;height:4px;border-radius:4px;background:var(--line);margin-bottom:2px}
+.panel h2{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.75rem;margin:0}
+@media (prefers-reduced-motion:no-preference){.sheet.show .panel{animation:up .22s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}}
+.seg{display:flex;background:var(--night);border:1px solid var(--line);border-radius:var(--r-sm);padding:3px;gap:3px}
+.seg button{flex:1;border:none;background:transparent;padding:9px 4px;font-weight:600;border-radius:7px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--cream);color:var(--night)}
+#modeSeg button[aria-pressed="true"]{background:var(--gold);color:#1A1405}
+#multSeg button[data-m="2"][aria-pressed="true"]{background:var(--green);color:#fff}
+#multSeg button[data-m="3"][aria-pressed="true"]{background:var(--red);color:#fff}
+.field{display:flex;flex-direction:column;gap:7px}
+.field>label,.field>.lab{font-size:.88rem;color:var(--muted);font-weight:500}
+.field input[type=text],.field input[type=number]{border:1px solid var(--line);background:var(--night);color:var(--cream);border-radius:var(--r-sm);padding:11px;font:inherit}
+.prow{display:flex;gap:6px}
+.prow input{flex:1;min-width:0}
+.prow button{border:1px solid var(--line);background:transparent;border-radius:var(--r-sm);padding:0 12px;color:var(--muted)}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 0}
+.toggle input{width:22px;height:22px;accent-color:var(--green)}
+input[type=range]{width:100%;accent-color:var(--gold)}
+.keys{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.keys button{border:1px solid var(--line);background:var(--night);border-radius:var(--r-sm);padding:12px 0;font-family:var(--display);font-style:italic;font-weight:800;font-size:1.5rem}
+.keys2{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.keys2 button{border:1px solid var(--line);background:var(--night);border-radius:var(--r-sm);padding:12px 0;font-weight:600}
+.keys2 .del{color:var(--red)}
+.win{text-align:center;align-items:stretch}
+.win .big{font-size:3.8rem;color:var(--gold);text-shadow:0 0 40px rgba(255,194,60,.3)}
+.win p{color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){
+  .flash{animation:fl .7s ease-out}
+  @keyframes fl{from{background:var(--gold)}to{background:#1E2940}}
+}
+
+/* ---------- paysage (téléphone sur support) ---------- */
+@media (orientation:landscape) and (min-width:560px){
+  .app{max-width:none;height:100%;padding:10px max(14px,env(safe-area-inset-right,0px)) 10px max(12px,env(safe-area-inset-left,0px));
+    grid-template-columns:minmax(0,1fr) clamp(290px,38vw,420px);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"stage top" "stage board";gap:10px 14px}
+  .stage{min-height:0;height:100%}
+  .camwrap{flex:1;min-height:0;container-type:size;align-items:center}
+  .cam{width:min(100cqw,calc(100cqh * var(--ar,1.3333)))}
+  .tools{flex-direction:row;align-items:center;gap:8px}
+  .zoomrow{flex:0 1 230px;padding:3px 12px 3px 14px}
+  .camtools{flex:1;margin:0;padding:0}
+  .board{min-height:0;overflow-y:auto;scrollbar-width:none;gap:8px}
+  .board::-webkit-scrollbar{display:none}
+  h1{font-size:1.6rem}
+  .iconbtn{padding:6px 12px 6px 9px}
+  .pcard{flex-basis:96px;padding:6px 20px 6px 22px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .pcard .s{font-size:1.4rem;margin:0}
+  .turn{padding:0 12px 10px;gap:8px;flex:1 0 auto}
+  .who{margin-left:-12px;font-size:.95rem;padding:4px 22px 4px 12px}
+  .big{font-size:clamp(3.2rem,15vh,6rem);margin-top:6px}
+  .sub{padding-top:8px}
+  .sub .ts{font-size:1.6rem}
+  .dart{min-height:clamp(48px,12vh,72px);padding:5px 4px 7px}
+  .dart .tag{display:none}
+  .dart .l{font-size:1.6rem}
+  .btn{padding:10px 6px}
+  .hint{display:none}
+  .msg{min-height:1.3em;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .panel{max-width:min(720px,100%);max-height:96dvh;border-radius:20px 20px 0 0;padding-top:6px;gap:9px}
+  .panel::before{display:none}
+  .panel h2{font-size:1.4rem}
+  .keys{grid-template-columns:repeat(10,1fr)}
+  .keys button{padding:9px 0;font-size:1.3rem}
+  .keys2 button{padding:9px 0}
+}
+@media (orientation:landscape) and (min-width:560px) and (max-height:430px){
+  .camtools button{padding:5px 11px;font-size:.8rem}
+  .co .t{font-size:1rem}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1><span class="mark" aria-hidden="true"></span>Fléchette</h1>
+    <button class="iconbtn" id="openSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Partie</button>
+  </header>
+
+  <section class="stage" aria-label="Caméra">
+    <div class="camwrap">
+      <div class="cam" id="cam">
+        <canvas id="view" width="640" height="480" aria-label="Vue caméra de la cible"></canvas>
+        <video id="video" playsinline muted></video>
+        <div class="camoff" id="camoff">
+          <div class="target" aria-hidden="true"></div>
+          <button class="btn primary" id="startCam">Activer la caméra</button>
+          <button class="btn ghost" id="demoBtn">Essayer la démo</button>
+          <p id="camMsg">Pose le téléphone face à la cible : elle est repérée toute seule, puis chaque fléchette est comptée.</p>
+        </div>
+        <div class="pill" id="pill" hidden><span class="dot" id="dot"></span><span id="status">Caméra prête</span></div>
+      </div>
+    </div>
+
+    <div class="calibbar" id="calibbar">
+      <p>Fais glisser les 4 poignées sur le <b>bord extérieur du double</b>, au milieu des secteurs 20 (haut), 6 (droite), 3 (bas) et 11 (gauche). L’image reste figée pendant le réglage.</p>
+      <div class="row"><button class="btn" id="calibCancel">Annuler</button><button class="btn go" id="calibOk">Valider</button></div>
+    </div>
+
+    <div class="tools">
+      <div class="zoomrow" id="zoomrow" hidden>
+        <label for="zoom">Zoom</label>
+        <input type="range" id="zoom" min="1" max="5" step="0.1" value="1">
+        <output id="zoomVal">1×</output>
+      </div>
+      <div class="camtools" id="camtools" hidden>
+        <button id="detBtn" aria-pressed="true">Détection auto</button>
+        <button id="autoBtn">Retrouver la cible</button>
+        <button id="refBtn">Cible vide</button>
+        <button id="calibBtn">Ajuster à la main</button>
+        <button id="dbgBtn" aria-pressed="false">Voir la détection</button>
+        <button id="quitDemo" hidden>Quitter la démo</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="board" aria-label="Scores">
+    <div class="players" id="players"></div>
+
+    <section class="turn" aria-live="polite">
+      <div class="turnhead">
+        <div>
+          <div class="who" id="who"></div>
+          <div class="big" id="big">501</div>
+        </div>
+        <div class="sub" id="sub"></div>
+      </div>
+      <div class="co" id="co" aria-label="Finish possible"></div>
+      <div class="darts" id="darts"></div>
+      <div class="msg" id="msg"></div>
+      <div class="actions">
+        <button class="btn" id="undoBtn">Annuler</button>
+        <button class="btn" id="addBtn">+ Fléchette</button>
+        <button class="btn primary" id="nextBtn">Tour suivant</button>
+      </div>
+      <p class="hint">Touche une fléchette pour corriger son score, ou un joueur pour modifier son total.</p>
+    </section>
+  </section>
+</div>
+
+<!-- keypad -->
+<div class="sheet" id="keySheet" role="dialog" aria-modal="true" aria-labelledby="keyTitle">
+  <div class="panel">
+    <h2 id="keyTitle">Fléchette</h2>
+    <div class="seg" id="multSeg">
+      <button data-m="1" aria-pressed="true">Simple</button>
+      <button data-m="2" aria-pressed="false">Double</button>
+      <button data-m="3" aria-pressed="false">Triple</button>
+    </div>
+    <div class="keys" id="numKeys"></div>
+    <div class="keys2">
+      <button data-special="25">25</button>
+      <button data-special="50">Bull 50</button>
+      <button data-special="0">Raté</button>
+      <button class="del" id="delDart">Supprimer</button>
+    </div>
+    <button class="btn" id="keyClose">Fermer</button>
+  </div>
+</div>
+
+<!-- score edit -->
+<div class="sheet" id="scoreSheet" role="dialog" aria-modal="true" aria-labelledby="scoreTitle">
+  <div class="panel">
+    <h2 id="scoreTitle">Modifier le total</h2>
+    <div class="field"><label for="scoreInput" id="scoreLabel">Score</label><input type="number" id="scoreInput" inputmode="numeric" min="0" max="9999"></div>
+    <div class="row"><button class="btn" id="scoreCancel">Annuler</button><button class="btn go" id="scoreOk">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- settings -->
+<div class="sheet" id="setSheet" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+  <div class="panel">
+    <h2 id="setTitle">Partie</h2>
+    <div class="field"><span class="lab">Jeu</span>
+      <div class="seg" id="modeSeg">
+        <button data-v="301">301</button><button data-v="501">501</button><button data-v="701">701</button><button data-v="free">Libre</button>
+      </div>
+    </div>
+    <div class="toggle"><label for="dblOut">Finir sur un double</label><input type="checkbox" id="dblOut"></div>
+    <div class="toggle"><label for="voiceOn">Annonce vocale des scores</label><input type="checkbox" id="voiceOn"></div>
+    <div class="field"><span class="lab">Joueurs</span><div id="plist" style="display:flex;flex-direction:column;gap:6px"></div>
+      <button class="btn" id="addPlayer">Ajouter un joueur</button></div>
+    <div class="field"><span class="lab">Position du téléphone (sert à trouver la pointe, Auto conseillé)</span>
+      <div class="seg" id="tipSeg">
+        <button data-v="auto">Auto</button><button data-v="bottom">Sous la cible</button><button data-v="top">Au-dessus</button><button data-v="center">De face</button>
+      </div>
+    </div>
+    <div class="field"><label for="sens">Sensibilité de détection <span id="sensVal"></span></label><input type="range" id="sens" min="1" max="10" step="1"></div>
+    <div class="row"><button class="btn" id="setClose">Fermer</button><button class="btn primary" id="newGame">Nouvelle partie</button></div>
+  </div>
+</div>
+
+<!-- win -->
+<div class="sheet" id="winSheet" role="dialog" aria-modal="true">
+  <div class="panel win">
+    <div class="big" id="winName"></div>
+    <p id="winSub" style="margin:0"></p>
+    <div class="row"><button class="btn" id="winUndo">Corriger</button><button class="btn go" id="winAgain">Rejouer</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const ORDER=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+const R={bullIn:6.35,bullOut:15.9,trIn:99,trOut:107,dbIn:162,dbOut:170};
+
+/* ---------- storage ---------- */
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+let settings=Object.assign({voice:true,mode:"501",doubleOut:true,players:["Joueur 1","Joueur 2"],tip:"auto",sens:6},load("fl_settings",{}));
+if(!settings.v7){settings.v7=true;settings.tip="auto";save("fl_settings",settings)}
+let calib=load("fl_calib",null); // {pts:[[x,y]x4], vw, vh}
+
+/* ---------- voix ---------- */
+const voice={v:null,en:false,ok:"speechSynthesis" in window,primed:false,
+  pick(){if(!this.ok)return;const vs=speechSynthesis.getVoices();
+    this.v=vs.find(v=>/^fr[-_]FR/i.test(v.lang)&&/google|thomas|amélie|amelie|audrey|marie/i.test(v.name))||vs.find(v=>/^fr[-_]FR/i.test(v.lang))||vs.find(v=>/^fr/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;
+    this.en=!!(this.v&&/^en/i.test(this.v.lang))},
+  prime(){if(!this.ok||this.primed)return;this.primed=true;try{const u=new SpeechSynthesisUtterance(" ");u.volume=0;speechSynthesis.speak(u)}catch(e){}},
+  say(fr,en,cut){if(!this.ok||!settings.voice)return;try{if(!this.v)this.pick();if(cut)speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(this.en?(en||fr):fr);if(this.v){u.voice=this.v;u.lang=this.v.lang}else u.lang="fr-FR";u.rate=1.05;speechSynthesis.speak(u)}catch(e){}},
+  dart(d){
+    if(d.num===0)return d.out?["Zéro","Zero"]:["Raté","Miss"];
+    if(d.num===25)return d.mult===2?["Bull","Bullseye"]:["25","25"];
+    if(d.mult===3)return["Triple "+d.num,"Treble "+d.num];
+    if(d.mult===2)return["Double "+d.num,"Double "+d.num];
+    return[""+d.num,""+d.num];
+  }
+};
+if(voice.ok){voice.pick();speechSynthesis.onvoiceschanged=()=>voice.pick()}
+document.addEventListener("pointerdown",()=>voice.prime(),{once:true,capture:true});
+function announce(d,corr){
+  const[f,e]=voice.dart(d),ev=evalTurn();let fr=(corr?"Corrigé : ":"")+f,en=(corr?"Corrected: ":"")+e;
+  if(ev.won){fr+=". Partie gagnée !";en+=". Game shot!"}
+  else if(ev.bust){fr+=". Bust";en+=". Bust"}
+  else if(game.turn.length>=3){fr+=". Total "+ev.sum;en+=". Total "+ev.sum}
+  voice.say(fr,en,corr);
+}
+
+/* ---------- game ---------- */
+let game, undoStack=[];
+function startScore(){return settings.mode==="free"?0:parseInt(settings.mode,10)}
+function newGame(){
+  game={players:settings.players.map(n=>({name:n||"Joueur",score:startScore()})),cur:0,turn:[],turnStart:startScore(),over:false,winner:-1};
+  undoStack=[];det.pendingRemoval=false;render();
+}
+function snap(){undoStack.push(JSON.stringify(game));if(undoStack.length>200)undoStack.shift()}
+function undo(){if(!undoStack.length)return;game=JSON.parse(undoStack.pop());det.pendingRemoval=false;hideSheet("winSheet");render();setMsg("Action annulée","")}
+function mk(mult,num){
+  if(num===0)return{mult:0,num:0,value:0};
+  if(num===25)return{mult:mult>=2?2:1,num:25,value:mult>=2?50:25};
+  return{mult,num,value:mult*num};
+}
+function lab(d){if(d.num===0)return d.out?"0":"Raté";if(d.num===25)return d.mult===2?"Bull":"25";return(d.mult===3?"T":d.mult===2?"D":"")+d.num}
+function evalTurn(){
+  let sum=0,rem=game.turnStart,bust=false,won=false;
+  if(settings.mode==="free"){for(const d of game.turn)sum+=d.value;return{sum,rem:game.turnStart+sum,bust,won}}
+  for(const d of game.turn){
+    sum+=d.value;rem-=d.value;
+    if(rem<0||(settings.doubleOut&&rem===1)||(rem===0&&settings.doubleOut&&d.mult!==2)){bust=true;break}
+    if(rem===0){won=true;break}
+  }
+  return{sum,rem,bust,won};
+}
+function locked(){const e=evalTurn();return game.over||game.turn.length>=3||e.bust||e.won}
+function addDart(d){
+  if(locked())return false;
+  snap();game.turn.push(d);render();announce(d,false);
+  const e=evalTurn();
+  if(e.won)setMsg(game.players[game.cur].name+" termine ! Valide avec Tour suivant","green");
+  else if(e.bust)setMsg("Bust ! Le score revient à "+game.turnStart,"red");
+  else if(game.turn.length>=3)setMsg("Retire les fléchettes pour passer au joueur suivant","");
+  return true;
+}
+function nextTurn(auto){
+  if(game.over)return;
+  snap();
+  const e=evalTurn(),p=game.players[game.cur];
+  p.score=e.bust?game.turnStart:e.rem;
+  if(e.won){game.over=true;game.winner=game.cur;render();showWin();return}
+  if(!auto&&game.turn.some(d=>d.auto)){det.pendingRemoval=true;det.pendPP=game.turn.filter(d=>d.bp).map(d=>d.bp)}
+  game.cur=(game.cur+1)%game.players.length;
+  game.turnStart=game.players[game.cur].score;game.turn=[];
+  render();setMsg("À "+game.players[game.cur].name+" de jouer","");voice.say("À "+game.players[game.cur].name,game.players[game.cur].name+" to throw");
+}
+function showWin(){
+  $("winName").textContent=game.players[game.winner].name+" gagne";
+  $("winSub").textContent="Fin de partie en "+settings.mode+".";
+  showSheet("winSheet");
+}
+
+/* ---------- finish conseillé ---------- */
+const FIN=(()=>{const a=[];for(let n=20;n>=1;n--)a.push({l:"T"+n,v:3*n,m:3});a.push({l:"Bull",v:50,m:2});a.push({l:"25",v:25,m:1});
+  for(let n=20;n>=1;n--)a.push({l:"D"+n,v:2*n,m:2});for(let n=20;n>=1;n--)a.push({l:String(n),v:n,m:1});return a})();
+function finishPath(rem,left,dbl){
+  const PREF=["D20","D16","D8","D10","D12","D18","D4","D6","D14","D2","D19","D17","D15","D13","D11","D9","D7","D5","D3","D1","Bull"];
+  const endC=t=>{const i=PREF.indexOf(t.l);return i<0?(t.m===1?1:t.m===3?6:4):i*.6};
+  const setC=t=>t.l==="Bull"?9:t.l==="25"?6:t.m===2?12:t.m===1?3:(t.v>=45?(60-t.v)/3:8);
+  const ends=FIN.filter(t=>dbl?t.m===2:true);
+  let best=null,score=1e9;const tryP=(p,c)=>{if(c<score){score=c;best=p}};
+  for(const e of ends)if(e.v===rem)tryP([e],endC(e));
+  if(best)return best;
+  if(left>=2){for(const x of FIN)for(const e of ends)if(x.v+e.v===rem)tryP([x,e],setC(x)+endC(e));if(best)return best}
+  if(left>=3)for(const x of FIN)for(const y of FIN)for(const e of ends)if(x.v+y.v+e.v===rem)tryP([x,y,e],setC(x)*1.2+setC(y)+endC(e));
+  return best;
+}
+/* ---------- render ---------- */
+function setMsg(t,c){const m=$("msg");m.textContent=t;m.className="msg"+(c?" "+c:"")}
+function render(){
+  const pl=$("players");pl.innerHTML="";
+  game.players.forEach((p,i)=>{
+    const b=document.createElement("button");b.className="pcard"+(i===game.cur?" cur":"");
+    const shown=i===game.cur?evalTurn():null;
+    const n=document.createElement("div");n.className="n";n.textContent=p.name;
+    const s=document.createElement("div");s.className="s";s.textContent=p.score;
+    b.append(n,s);b.onclick=()=>openScoreEdit(i);pl.append(b);
+  });
+  const e=evalTurn(),p=game.players[game.cur];
+  $("who").textContent=p.name;
+  const big=$("big");
+  big.textContent=e.bust?game.turnStart:e.rem;
+  big.className="big"+(e.bust?" bust":"");
+  $("sub").innerHTML="";
+  const s1=document.createElement("div");s1.innerHTML='<span class="ts"></span>ce tour';s1.firstChild.textContent=e.bust?"Bust":e.sum;
+  const s2=document.createElement("div");s2.textContent=settings.mode==="free"?"Jeu libre":settings.mode+(settings.doubleOut?" double out":"");
+  $("sub").append(s1,s2);
+  const co=$("co");co.innerHTML="";
+  const left=3-game.turn.length;
+  if(settings.mode!=="free"&&!e.bust&&!game.over&&left>0&&e.rem>1&&e.rem<=170){
+    const path=finishPath(e.rem,left,settings.doubleOut);
+    if(path){const k=document.createElement("span");k.className="k";k.textContent="Finish";co.append(k);
+      path.forEach(t=>{const x=document.createElement("span");x.className="t"+(t.m===2?" d":t.m===3?" tr":"");x.textContent=t.l;co.append(x)})}
+  }
+  const dz=$("darts");dz.innerHTML="";
+  for(let i=0;i<3;i++){
+    const d=game.turn[i],b=document.createElement("button");
+    b.className="dart"+(d?" filled m"+(d.num===0?0:d.mult):"");
+    if(d){
+      b.innerHTML='<span class="l"></span><span class="v"></span><span class="tag"></span>';
+      b.querySelector(".l").textContent=lab(d);
+      b.querySelector(".v").textContent=d.value+" pts";
+      b.querySelector(".tag").textContent=d.auto?"auto":"manuel";
+      b.setAttribute("aria-label","Fléchette "+(i+1)+" : "+lab(d)+", modifier");
+      b.onclick=()=>openKeys(i);
+    }else{
+      b.innerHTML='<span class="v">—</span>';
+      b.setAttribute("aria-label","Fléchette "+(i+1)+" vide, ajouter");
+      b.onclick=()=>{if(!locked())openKeys(game.turn.length)};
+    }
+    dz.append(b);
+  }
+  $("addBtn").disabled=locked();
+  $("undoBtn").disabled=!undoStack.length;
+  $("nextBtn").disabled=game.over;
+}
+function flashDart(i){const el=$("darts").children[i];if(el){el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash")}}
+
+/* ---------- sheets ---------- */
+function showSheet(id){$(id).classList.add("show")}
+function hideSheet(id){$(id).classList.remove("show")}
+document.querySelectorAll(".sheet").forEach(s=>s.addEventListener("click",ev=>{if(ev.target===s&&s.id!=="winSheet")hideSheet(s.id)}));
+
+/* keypad */
+let keyIdx=0,keyMult=1;
+(function(){const k=$("numKeys");for(let n=1;n<=20;n++){const b=document.createElement("button");b.textContent=n;b.onclick=()=>pick(keyMult,n);k.append(b)}})();
+$("multSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{keyMult=+b.dataset.m;$("multSeg").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+document.querySelectorAll("[data-special]").forEach(b=>b.onclick=()=>{const v=+b.dataset.special;pick(v===50?2:1,v===0?0:25)});
+function openKeys(i){
+  keyIdx=i;keyMult=1;
+  $("multSeg").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.m==="1"));
+  $("keyTitle").textContent=i<game.turn.length?"Corriger la fléchette "+(i+1):"Ajouter la fléchette "+(i+1);
+  $("delDart").hidden=!(i<game.turn.length);
+  showSheet("keySheet");
+}
+function pick(mult,num){
+  const d=mk(mult,num);d.auto=false;
+  if(keyIdx<game.turn.length){snap();d.pt=game.turn[keyIdx].pt;d.b=game.turn[keyIdx].b;game.turn[keyIdx]=d;render();announce(d,true);setMsg("Fléchette corrigée : "+lab(d),"")}
+  else addDart(d);
+  hideSheet("keySheet");
+  const e=evalTurn();if(e.bust)setMsg("Bust ! Le score revient à "+game.turnStart,"red");else if(e.won)setMsg(game.players[game.cur].name+" termine ! Valide avec Tour suivant","green");
+}
+$("delDart").onclick=()=>{if(keyIdx<game.turn.length){snap();game.turn.splice(keyIdx,1);render();setMsg("Fléchette supprimée","")}hideSheet("keySheet")};
+$("keyClose").onclick=()=>hideSheet("keySheet");
+
+/* score edit */
+let scoreIdx=0;
+function openScoreEdit(i){
+  scoreIdx=i;$("scoreLabel").textContent="Total de "+game.players[i].name+(i===game.cur?" (avant ce tour)":"");
+  $("scoreInput").value=i===game.cur?game.turnStart:game.players[i].score;showSheet("scoreSheet");setTimeout(()=>$("scoreInput").focus(),50);
+}
+$("scoreOk").onclick=()=>{
+  const v=parseInt($("scoreInput").value,10);if(isNaN(v)||v<0)return;
+  snap();game.players[scoreIdx].score=v;if(scoreIdx===game.cur)game.turnStart=v;
+  hideSheet("scoreSheet");render();setMsg("Total modifié","");
+};
+$("scoreCancel").onclick=()=>hideSheet("scoreSheet");
+
+/* settings */
+function renderSettings(){
+  $("modeSeg").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===settings.mode));
+  $("tipSeg").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===settings.tip));
+  $("dblOut").checked=settings.doubleOut;$("voiceOn").checked=settings.voice;$("dblOut").disabled=settings.mode==="free";
+  $("sens").value=settings.sens;$("sensVal").textContent="("+settings.sens+"/10)";
+  const pl=$("plist");pl.innerHTML="";
+  settings.players.forEach((n,i)=>{
+    const r=document.createElement("div");r.className="prow";
+    const inp=document.createElement("input");inp.type="text";inp.value=n;inp.maxLength=16;inp.setAttribute("aria-label","Nom du joueur "+(i+1));
+    inp.oninput=()=>{settings.players[i]=inp.value;save("fl_settings",settings)};
+    r.append(inp);
+    if(settings.players.length>1){const x=document.createElement("button");x.textContent="Retirer";x.onclick=()=>{settings.players.splice(i,1);save("fl_settings",settings);renderSettings()};r.append(x)}
+    pl.append(r);
+  });
+  $("addPlayer").disabled=settings.players.length>=6;
+}
+$("modeSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{settings.mode=b.dataset.v;save("fl_settings",settings);renderSettings()});
+$("tipSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{settings.tip=b.dataset.v;save("fl_settings",settings);renderSettings()});
+$("voiceOn").onchange=()=>{settings.voice=$("voiceOn").checked;save("fl_settings",settings);if(settings.voice)voice.say("Annonce vocale activée","Voice on",true)};
+$("dblOut").onchange=()=>{settings.doubleOut=$("dblOut").checked;save("fl_settings",settings);render()};
+$("sens").oninput=()=>{settings.sens=+$("sens").value;save("fl_settings",settings);$("sensVal").textContent="("+settings.sens+"/10)"};
+$("addPlayer").onclick=()=>{settings.players.push("Joueur "+(settings.players.length+1));save("fl_settings",settings);renderSettings()};
+$("openSettings").onclick=()=>{renderSettings();showSheet("setSheet")};
+$("setClose").onclick=()=>{hideSheet("setSheet");game.players.forEach((p,i)=>{if(settings.players[i]!==undefined)p.name=settings.players[i]||p.name});render()};
+$("newGame").onclick=()=>{hideSheet("setSheet");newGame();det.resetRef();setMsg("Nouvelle partie : à "+game.players[0].name,"")};
+$("winAgain").onclick=()=>{hideSheet("winSheet");newGame();det.resetRef()};
+$("winUndo").onclick=()=>undo();
+$("undoBtn").onclick=undo;
+$("addBtn").onclick=()=>{if(!locked())openKeys(game.turn.length)};
+$("nextBtn").onclick=()=>nextTurn(false);
+
+/* ---------- geometry ---------- */
+function solveH(src,dst){
+  const A=[],b=[];
+  for(let i=0;i<4;i++){
+    const[x,y]=src[i],[u,v]=dst[i];
+    A.push([x,y,1,0,0,0,-u*x,-u*y]);b.push(u);
+    A.push([0,0,0,x,y,1,-v*x,-v*y]);b.push(v);
+  }
+  const n=8;
+  for(let c=0;c<n;c++){
+    let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;
+    [A[c],A[p]]=[A[p],A[c]];[b[c],b[p]]=[b[p],b[c]];
+    if(Math.abs(A[c][c])<1e-12)return null;
+    for(let r=0;r<n;r++){if(r===c)continue;const f=A[r][c]/A[c][c];if(!f)continue;for(let k=c;k<n;k++)A[r][k]-=f*A[c][k];b[r]-=f*b[c]}
+  }
+  const h=b.map((v,i)=>v/A[i][i]);h.push(1);return h;
+}
+function applyH(h,x,y){const w=h[6]*x+h[7]*y+h[8];return[(h[0]*x+h[1]*y+h[2])/w,(h[3]*x+h[4]*y+h[5])/w]}
+const DST=[[0,-R.dbOut],[R.dbOut,0],[0,R.dbOut],[-R.dbOut,0]];
+let H=null,Hi=null;
+function updateH(pts){H=solveH(pts,DST);Hi=solveH(DST,pts)}
+function scoreAt(bx,by){
+  const r=Math.hypot(bx,by);
+  let a=Math.atan2(bx,-by)*180/Math.PI;if(a<0)a+=360;
+  const num=ORDER[Math.floor(((a+9)%360)/18)];
+  if(r<=R.bullIn)return mk(2,25);
+  if(r<=R.bullOut)return mk(1,25);
+  if(r<R.trIn)return mk(1,num);
+  if(r<=R.trOut)return mk(3,num);
+  if(r<R.dbIn)return mk(1,num);
+  if(r<=R.dbOut)return mk(2,num);
+  return Object.assign(mk(0,0),{out:true}); // dans le noir, hors des numéros : 0
+}
+
+/* ---------- camera & drawing ---------- */
+/* ---------- détection automatique de la cible (couleurs rouge/vert des doubles et triples) ---------- */
+function findBoard(d,W,Hh){
+  const N=W*Hh,col=new Uint8Array(N),rm=new Float32Array(N),gm=new Float32Array(N);
+  for(let i=0,j=0;i<N;i++,j+=4){
+    const r=d[j],g=d[j+1],b=d[j+2],mx=r>g?(r>b?r:b):(g>b?g:b),mn=r<g?(r<b?r:b):(g<b?g:b);
+    if(mx<42||mx-mn<26)continue;const s=(mx-mn)/mx;
+    if(r===mx&&s>.34&&g<r*.64&&b<r*.78&&r-(g>b?g:b)>26)col[i]=1;
+    else if(s>.26&&g>=b*.88&&g>r*1.22&&g-r>=14)col[i]=2;
+  }
+  // cartes adoucies (flou 5x5) pour l'ajustement fin
+  {const tr=new Float32Array(N),tg=new Float32Array(N);
+    for(let y=0;y<Hh;y++){let ar=0,ag=0;for(let x=-2;x<W+2;x++){const xa=x+2,xr=x-3;if(xa<W){const c=col[y*W+xa];ar+=c===1;ag+=c===2}if(xr>=0){const c=col[y*W+xr];ar-=c===1;ag-=c===2}if(x>=0&&x<W){tr[y*W+x]=ar;tg[y*W+x]=ag}}}
+    for(let x=0;x<W;x++){let ar=0,ag=0;for(let y=-2;y<Hh+2;y++){const ya=y+2,yr=y-3;if(ya<Hh){ar+=tr[ya*W+x];ag+=tg[ya*W+x]}if(yr>=0){ar-=tr[yr*W+x];ag-=tg[yr*W+x]}if(y>=0&&y<Hh){rm[y*W+x]=ar/25;gm[y*W+x]=ag/25}}}}
+  // indice d'anneau : pixel coloré ayant la couleur opposée dans son voisinage (alternance rouge/vert)
+  const IW=W+1,IR=new Int32Array(IW*(Hh+1)),IG=new Int32Array(IW*(Hh+1));
+  for(let y=0;y<Hh;y++){let ar=0,ag=0;for(let x=0;x<W;x++){const c=col[y*W+x];ar+=c===1;ag+=c===2;IR[(y+1)*IW+x+1]=IR[y*IW+x+1]+ar;IG[(y+1)*IW+x+1]=IG[y*IW+x+1]+ag}}
+  const K=Math.max(4,Math.round(Math.min(W,Hh)/70)),ev=new Uint8Array(N);
+  for(let y=0;y<Hh;y++){const ya=Math.max(0,y-K),yb=Math.min(Hh,y+K+1);for(let x=0;x<W;x++){const c=col[y*W+x];if(!c)continue;
+    const xa=Math.max(0,x-K),xb=Math.min(W,x+K+1),I=c===1?IG:IR,J=c===1?IR:IG,o=I[yb*IW+xb]-I[ya*IW+xb]-I[yb*IW+xa]+I[ya*IW+xa],sm=J[yb*IW+xb]-J[ya*IW+xb]-J[yb*IW+xa]+J[ya*IW+xa];if(o>=3&&sm>=5)ev[y*W+x]=c}}
+  const cands=[];
+  const mkLab=(m)=>{
+    const dil=new Uint8Array(N);
+    for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){if(!m[y*W+x])continue;for(let dy=-1;dy<=1;dy++){const ny=y+dy;if(ny<0||ny>=Hh)continue;for(let dx=-1;dx<=1;dx++){const nx=x+dx;if(nx>=0&&nx<W)dil[ny*W+nx]=1}}}
+    const lab=new Int32Array(N),stack=new Int32Array(N),out=[];let L=0;
+    for(let s0=0;s0<N;s0++){
+      if(!dil[s0]||lab[s0])continue;L++;let sp=0;stack[sp++]=s0;lab[s0]=L;
+      let n=0,nr=0,ng=0,sx=0,sy=0,x0=W,y0=Hh,x1=0,y1=0;
+      while(sp){const p=stack[--sp],px=p%W,py=(p/W)|0;
+        if(m[p]){n++;if(m[p]===1)nr++;else ng++;sx+=px;sy+=py;if(px<x0)x0=px;if(px>x1)x1=px;if(py<y0)y0=py;if(py>y1)y1=py}
+        if(px>0){const q=p-1;if(dil[q]&&!lab[q]){lab[q]=L;stack[sp++]=q}}
+        if(px<W-1){const q=p+1;if(dil[q]&&!lab[q]){lab[q]=L;stack[sp++]=q}}
+        if(py>0){const q=p-W;if(dil[q]&&!lab[q]){lab[q]=L;stack[sp++]=q}}
+        if(py<Hh-1){const q=p+W;if(dil[q]&&!lab[q]){lab[q]=L;stack[sp++]=q}}
+      }
+      const bw=x1-x0+1,bh=y1-y0+1;
+      if(n<80||bw<24||bh<24||nr<n*.12||ng<n*.12||Math.max(bw,bh)>3.2*Math.min(bw,bh))continue;
+      if(n>bw*bh*.6)continue; // plein = pas un anneau
+      out.push({L,n,cx:sx/n,cy:sy/n,bw,bh,lab,m});
+    }
+    out.sort((a,b)=>b.n-a.n);cands.push(...out.slice(0,3));
+  };
+  mkLab(col);mkLab(ev);
+  const S=boardSamples(),inits=[];
+  for(const c of cands){
+    const e=fitRing(c,c.lab,c.m,W,Hh);if(!e)continue;
+    for(const rOut of [170,107]){
+      const init=orient(e,rOut,rm,gm,W,Hh);if(!init)continue;
+      const h=hFrom(init);inits.push({init,s:h?scoreH(h,S,rm,gm,W,Hh):-1e9});
+    }
+  }
+  inits.sort((a,b)=>b.s-a.s);let best=null;
+  for(const it of inits.slice(0,3)){const res=refineH(it.init,S,rm,gm,W,Hh);if(!best||res.score>best.score)best=res}
+  return best;
+}
+function boardSamples(){
+  const S=[],ring=(r,exp,w,offs)=>{for(let i=0;i<20;i++)for(const o of offs){const a=(i*18+o)*Math.PI/180;S.push([r*Math.sin(a),-r*Math.cos(a),exp===3?(i%2?2:1):exp,w])}};
+  const off4=[-6,-2,2,6];
+  ring(164,3,1,off4);ring(168,3,1,off4);ring(101,3,1,off4);ring(105,3,1,off4);
+  ring(60,0,.5,[-4,4]);ring(132,0,.5,[-4,4]);ring(150,0,.4,[0]);ring(185,0,.3,[0]);
+  for(let k=0;k<8;k++){const a=k*Math.PI/4;S.push([11*Math.sin(a),-11*Math.cos(a),2,1.5])}
+  S.push([0,0,1,2]);
+  return S;
+}
+function fitRing(c,lab,col,W,Hh){
+  // points du bord extérieur de l'anneau : pixel le plus lointain le long de rayons partant du centre
+  let cx=c.cx,cy=c.cy;const rmax=Math.max(c.bw,c.bh)*.9;let el=null;
+  for(let it=0;it<2;it++){
+    const P=[];
+    for(let k=0;k<180;k++){const a=k*Math.PI/90,ex=Math.cos(a),ey=Math.sin(a);let far=-1;
+      for(let r=2;r<rmax;r+=.5){const x=Math.round(cx+ex*r),y=Math.round(cy+ey*r);if(x<0||y<0||x>=W||y>=Hh)break;const i=y*W+x;if(lab[i]===c.L&&col[i])far=r}
+      if(far>0)P.push([cx+ex*far,cy+ey*far,far])}
+    if(P.length<60)return null;
+    // rayons aberrants (fléchette, reflet) : on garde ceux proches de la médiane locale
+    const rs=P.map(p=>p[2]).sort((a,b)=>a-b),med=rs[rs.length>>1];
+    let Q=P.filter(p=>p[2]>med*.6&&p[2]<med*1.5);
+    for(let pass=0;pass<3;pass++){
+      el=conicFit(Q);if(!el)return null;
+      const res=Q.map(p=>Math.abs(ellRad(el,p[0],p[1])-1));const srt=res.slice().sort((a,b)=>a-b),lim=Math.max(.03,srt[Math.floor(srt.length*.8)]*1.5);
+      Q=Q.filter((p,i)=>res[i]<=lim);if(Q.length<40)return null;
+    }
+    cx=el.cx;cy=el.cy;
+  }
+  return el;
+}
+function conicFit(P){
+  // x² + Bxy + Cy² + Dx + Ey + F = 0 (moindres carrés), coordonnées normalisées
+  let mx=0,my=0;for(const p of P){mx+=p[0];my+=p[1]}mx/=P.length;my/=P.length;
+  let sc=0;for(const p of P)sc+=Math.hypot(p[0]-mx,p[1]-my);sc=sc/P.length||1;
+  const M=[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],v=[0,0,0,0,0];
+  for(const p of P){const x=(p[0]-mx)/sc,y=(p[1]-my)/sc,row=[x*y,y*y,x,y,1],t=-x*x;
+    for(let i=0;i<5;i++){v[i]+=row[i]*t;for(let j=0;j<5;j++)M[i][j]+=row[i]*row[j]}}
+  const s=solveLin(M,v);if(!s)return null;
+  const A=1,[B,C,D,E,F]=s,det=4*A*C-B*B;if(det<=0)return null;
+  const x0=(B*E-2*C*D)/det,y0=(B*D-2*A*E)/det,F0=A*x0*x0+B*x0*y0+C*y0*y0+D*x0+E*y0+F;
+  if(F0>=0)return null;
+  const tr=A+C,dd=Math.sqrt(Math.max(0,(A-C)*(A-C)+B*B)),l1=(tr+dd)/2,l2=(tr-dd)/2;if(l2<=0)return null;
+  const ax1=Math.sqrt(-F0/l1)*sc,ax2=Math.sqrt(-F0/l2)*sc;            // petit axe, grand axe
+  const th=.5*Math.atan2(B,A-C);                                      // direction du vecteur propre de l1
+  return{cx:x0*sc+mx,cy:y0*sc+my,a1:ax1,a2:ax2,th,
+    // forme quadratique en pixels pour mesurer le rayon normalisé
+    q:[A/(sc*sc),B/(sc*sc),C/(sc*sc)],k:-F0};
+}
+function ellRad(e,x,y){const dx=x-e.cx,dy=y-e.cy;return Math.sqrt(Math.max(0,(e.q[0]*dx*dx+e.q[1]*dx*dy+e.q[2]*dy*dy)/e.k))}
+function solveLin(A,b){const n=b.length;A=A.map(r=>r.slice());b=b.slice();
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;[A[c],A[p]]=[A[p],A[c]];[b[c],b[p]]=[b[p],b[c]];
+    if(Math.abs(A[c][c])<1e-12)return null;for(let r=0;r<n;r++){if(r===c)continue;const f=A[r][c]/A[c][c];for(let k=c;k<n;k++)A[r][k]-=f*A[c][k];b[r]-=f*b[c]}}
+  return b.map((v,i)=>v/A[i][i])}
+function sampleMap(m,W,Hh,x,y){if(x<0||y<0||x>=W-1||y>=Hh-1)return 0;const xi=x|0,yi=y|0,fx=x-xi,fy=y-yi,i=yi*W+xi;
+  return m[i]*(1-fx)*(1-fy)+m[i+1]*fx*(1-fy)+m[i+W]*(1-fx)*fy+m[i+W+1]*fx*fy}
+function orient(e,rOut,rm,gm,W,Hh){
+  // cercle unité -> ellipse : p = c + V·diag(a1,a2)·u ; on cherche la rotation psi qui aligne le 20
+  const c=Math.cos(e.th),s=Math.sin(e.th);
+  const A=[[c*e.a1,-s*e.a2],[s*e.a1,c*e.a2]]; // det>0 : pas de miroir
+  const map=(bx,by,psi)=>{const cp=Math.cos(psi),sp=Math.sin(psi),ux=(cp*bx-sp*by)/rOut,uy=(sp*bx+cp*by)/rOut;return[e.cx+A[0][0]*ux+A[0][1]*uy,e.cy+A[1][0]*ux+A[1][1]*uy]};
+  const sc=[];
+  for(let k=0;k<360;k++){const psi=k*Math.PI/180;let t=0;
+    for(let i=0;i<20;i++){const sign=i%2?-1:1;for(const o of [-5,0,5])for(const r of [166,103]){const a=(i*18+o)*Math.PI/180,[x,y]=map(r*Math.sin(a),-r*Math.cos(a),psi);t+=sign*(sampleMap(rm,W,Hh,x,y)-sampleMap(gm,W,Hh,x,y))}}
+    sc.push(t)}
+  const mx=Math.max(...sc);if(mx<=0)return null;
+  // motif périodique (36°) : parmi les meilleurs alignements, on prend celui où le 20 est le plus en haut
+  let bestK=-1,bestUp=-2;
+  for(let k=0;k<360;k++){if(sc[k]<mx*.85)continue;if(sc[k]<sc[(k+359)%360]||sc[k]<sc[(k+1)%360])continue;
+    const[x,y]=map(0,-170,k*Math.PI/180),dx=x-e.cx,dy=y-e.cy,up=-dy/Math.hypot(dx,dy);if(up>bestUp){bestUp=up;bestK=k}}
+  if(bestK<0)return null;const psi=bestK*Math.PI/180;
+  return[[0,-170],[170,0],[0,170],[-170,0]].map(([bx,by])=>map(bx,by,psi));
+}
+function hFrom(pts){return solveH4([[0,-170],[170,0],[0,170],[-170,0]],pts)}
+function solveH4(src,dst){const A=[],b=[];for(let i=0;i<4;i++){const[x,y]=src[i],[u,v]=dst[i];A.push([x,y,1,0,0,0,-u*x,-u*y]);b.push(u);A.push([0,0,0,x,y,1,-v*x,-v*y]);b.push(v)}const h=solveLin(A,b);if(!h)return null;h.push(1);return h}
+function scoreH(h,S,rm,gm,W,Hh){let t=0,wt=0;
+  for(const[bx,by,exp,w]of S){const den=h[6]*bx+h[7]*by+h[8];if(den<=0)return-1e9;const x=(h[0]*bx+h[1]*by+h[2])/den,y=(h[3]*bx+h[4]*by+h[5])/den;
+    const r=sampleMap(rm,W,Hh,x,y),g=sampleMap(gm,W,Hh,x,y);t+=w*(exp===1?r-g:exp===2?g-r:-(r+g));wt+=w}
+  return t/wt}
+function refineH(pts,S,rm,gm,W,Hh){
+  let P=pts.map(p=>p.slice()),h=hFrom(P),best=h?scoreH(h,S,rm,gm,W,Hh):-1e9;
+  const rad=Math.hypot(P[0][0]-P[2][0],P[0][1]-P[2][1])/2;
+  for(const st of [.06,.03,.015,.007]){const step=Math.max(.25,rad*st);
+    for(let pass=0;pass<12;pass++){let imp=false;
+      for(let k=0;k<8;k++){const pi=k>>1,ci=k&1;
+        for(const sg of [1,-1]){P[pi][ci]+=sg*step;const h2=hFrom(P),s2=h2?scoreH(h2,S,rm,gm,W,Hh):-1e9;if(s2>best+1e-6){best=s2;imp=true;break}P[pi][ci]-=sg*step}}
+      if(!imp)break}}
+  return{pts:P,score:best,rad};
+}
+const video=$("video"),view=$("view"),vctx=view.getContext("2d");
+let stream=null,track=null,vw=0,vh=0,calibrating=false,tmpPts=null,drag=-1,loopOn=false,demo=null,frozen=null;
+let hwZoom=null,zoomVal=settings.zoom||1,dz=1,pcx=0,pcy=0;
+function tipMode(){return demo&&demo.real?"bottom":(settings.tip||"auto")}
+function setStatus(t,k){$("status").textContent=t;$("dot").className="dot"+(k?" "+k:"")}
+
+/* frame (display canvas) <-> video coordinates, digital zoom/pan */
+function crop(){const sw=vw/dz,sh=vh/dz;return{sx:Math.min(Math.max(pcx-sw/2,0),vw-sw),sy:Math.min(Math.max(pcy-sh/2,0),vh-sh),sw,sh}}
+function f2v(x,y){const c=crop();return[c.sx+x*c.sw/view.width,c.sy+y*c.sh/view.height]}
+function v2f(x,y){const c=crop();return[(x-c.sx)*view.width/c.sw,(y-c.sy)*view.height/c.sh]}
+function cl2f(ev){const r=view.getBoundingClientRect();return[(ev.clientX-r.left)*view.width/r.width,(ev.clientY-r.top)*view.height/r.height]}
+function curOff(){return calibrating?[0,0]:det.off}
+function c2f(x,y){const o=curOff();return v2f(x+o[0],y+o[1])}           // calibration coords -> frame
+function b2f(bx,by){const[x,y]=applyH(Hi,bx,by);return c2f(x,y)}       // board mm -> frame
+
+$("startCam").onclick=async()=>{voice.prime();
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camFail("Ce navigateur ne donne pas accès à la caméra.");return}
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}}});
+    await startStream(s,false);
+  }catch(e){
+    camFail(e&&e.name==="NotAllowedError"?"Accès à la caméra refusé. Autorise la caméra pour ce site dans les réglages du navigateur, puis réessaie. Le comptage manuel reste disponible.":"Impossible d'ouvrir la caméra ("+(e&&e.name||"erreur")+"). Le comptage manuel reste disponible.");
+  }
+};
+function camFail(t){$("camMsg").textContent=t;$("startCam").textContent="Réessayer"}
+async function startStream(s,isDemo){
+  stream=s;track=s.getVideoTracks()[0];
+  video.srcObject=s;await video.play();
+  await new Promise(r=>{if(video.videoWidth)r();else video.onloadedmetadata=r});
+  vw=video.videoWidth;vh=video.videoHeight;pcx=vw/2;pcy=vh/2;
+  const ds=Math.min(1,1000/vw);view.width=Math.round(vw*ds);view.height=Math.round(vh*ds);
+  $("cam").style.aspectRatio=vw+"/"+vh;$("cam").style.setProperty("--ar",vw/vh);
+  $("camoff").hidden=true;$("pill").hidden=false;$("camtools").hidden=false;$("zoomrow").hidden=false;
+  if(isDemo){
+    hwZoom=null;const z=$("zoom");z.min=1;z.max=5;z.step=0.1;zoomVal=1;await applyZoom(1,true);
+    $("quitDemo").hidden=false;
+    await new Promise(r=>setTimeout(r,300));
+    autoCal.start("Démo : recherche automatique de la cible…");
+    setMsg("Démo lancée : la cible est trouvée toute seule, puis les scores se remplissent","");
+  }else{
+    try{await track.applyConstraints({advanced:[{focusMode:"continuous"}]})}catch(e){}
+    setupZoom();await applyZoom(zoomVal,true);
+    autoCal.start();setMsg("Vise la cible : elle est repérée toute seule","");
+  }
+  try{if(navigator.wakeLock)await navigator.wakeLock.request("screen")}catch(e){}
+  if(!loopOn){loopOn=true;requestAnimationFrame(draw);setInterval(()=>det.step(),100)}
+}
+
+/* ---------- zoom ---------- */
+function setupZoom(){
+  let caps={};try{caps=track.getCapabilities?track.getCapabilities():{}}catch(e){}
+  const z=$("zoom");
+  if(caps.zoom&&caps.zoom.max>caps.zoom.min){
+    hwZoom={min:caps.zoom.min,max:Math.min(caps.zoom.max,10),step:caps.zoom.step||0.1};
+    z.min=hwZoom.min;z.max=hwZoom.max;z.step=hwZoom.step;
+  }else{hwZoom=null;z.min=1;z.max=5;z.step=0.1}
+  zoomVal=Math.min(Math.max(zoomVal,+z.min),+z.max);z.value=zoomVal;
+}
+let zTimer=null;
+async function applyZoom(v,initial){
+  zoomVal=+(+v).toFixed(2);$("zoom").value=zoomVal;$("zoomVal").textContent=(Math.round(zoomVal*10)/10)+"×";
+  if(!demo){settings.zoom=zoomVal;save("fl_settings",settings)}
+  if(hwZoom){
+    try{await track.applyConstraints({advanced:[{zoom:zoomVal}]})}catch(e){}
+    dz=1;
+    if(!initial){
+      H=Hi=null;det.ctx=null;autoCal.on=false;setStatus("Zoom changé : recherche de la cible…","busy");
+      clearTimeout(zTimer);zTimer=setTimeout(()=>autoCal.start("Zoom changé : recherche de la cible…"),600);
+    }
+  }else{dz=zoomVal}
+}
+$("zoom").oninput=()=>applyZoom($("zoom").value);
+
+/* pinch to zoom, drag to pan (digital zoom) */
+const ptrs=new Map();let pinch=null,panStart=null;
+view.addEventListener("pointerdown",ev=>{
+  const[fx,fy]=cl2f(ev);
+  if(calibrating&&tmpPts&&ptrs.size===0){
+    const r=view.getBoundingClientRect(),lim=44*view.width/r.width;let best=-1,bd=1e9;
+    tmpPts.forEach((p,i)=>{const[px,py]=v2f(p[0],p[1]);const d=Math.hypot(px-fx,py-fy);if(d<bd){bd=d;best=i}});
+    if(bd<lim){drag=best;view.setPointerCapture(ev.pointerId);ev.preventDefault();return}
+  }
+  ptrs.set(ev.pointerId,[ev.clientX,ev.clientY]);view.setPointerCapture(ev.pointerId);
+  if(ptrs.size===2){const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a[0]-b[0],a[1]-b[1]),z:zoomVal};panStart=null}
+  else if(ptrs.size===1){const c=crop();panStart={x:ev.clientX,y:ev.clientY,cx:c.sx+c.sw/2,cy:c.sy+c.sh/2}}
+});
+let pinchRAF=0,pinchTarget=null;
+view.addEventListener("pointermove",ev=>{
+  if(drag>=0&&calibrating){const[fx,fy]=cl2f(ev);const[x,y]=f2v(fx,fy);tmpPts[drag]=[Math.max(0,Math.min(vw,x)),Math.max(0,Math.min(vh,y))];updateH(tmpPts);return}
+  if(!ptrs.has(ev.pointerId))return;ptrs.set(ev.pointerId,[ev.clientX,ev.clientY]);
+  if(ptrs.size===2&&pinch){
+    const[a,b]=[...ptrs.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);
+    const z=$("zoom");pinchTarget=Math.min(+z.max,Math.max(+z.min,pinch.z*d/pinch.d));
+    if(!pinchRAF)pinchRAF=requestAnimationFrame(()=>{pinchRAF=0;if(pinchTarget!=null)applyZoom(pinchTarget)});
+  }else if(ptrs.size===1&&panStart&&!hwZoom&&dz>1){
+    const r=view.getBoundingClientRect(),c=crop();
+    pcx=panStart.cx-(ev.clientX-panStart.x)*c.sw/r.width;pcy=panStart.cy-(ev.clientY-panStart.y)*c.sh/r.height;
+    const c2=crop();pcx=c2.sx+c2.sw/2;pcy=c2.sy+c2.sh/2;
+  }
+});
+function ptrEnd(ev){drag=-1;ptrs.delete(ev.pointerId);if(ptrs.size<2)pinch=null;if(ptrs.size===0)panStart=null}
+view.addEventListener("pointerup",ptrEnd);view.addEventListener("pointercancel",ptrEnd);
+
+/* ---------- drawing ---------- */
+function polyB(r,n){const out=[];for(let i=0;i<=n;i++){const a=i/n*2*Math.PI;out.push(b2f(r*Math.sin(a),-r*Math.cos(a)))}return out}
+function draw(){
+  if(vw){
+    const c=crop(),W=view.width,src=(calibrating&&frozen)?frozen:video;
+    vctx.drawImage(src,c.sx,c.sy,c.sw,c.sh,0,0,W,view.height);
+    if(det.debug&&det.dbg&&!calibrating&&H){
+      const[x1,y1]=c2f(det.bx,det.by),[x2,y2]=c2f(det.bx+det.bw,det.by+det.bh);
+      vctx.drawImage(det.dbg,x1,y1,x2-x1,y2-y1);
+      vctx.strokeStyle="rgba(80,200,255,.8)";vctx.lineWidth=1;vctx.strokeRect(x1,y1,x2-x1,y2-y1);
+    }
+    if(Hi){
+      vctx.save();vctx.lineWidth=Math.max(1.5,W/500);
+      vctx.strokeStyle=calibrating?"rgba(255,215,90,.95)":(det.lostN>3?"rgba(255,90,90,.7)":"rgba(255,255,255,.5)");
+      for(const r of [R.bullIn,R.bullOut,R.trIn,R.trOut,R.dbIn,R.dbOut]){const p=polyB(r,72);vctx.beginPath();p.forEach(([x,y],i)=>i?vctx.lineTo(x,y):vctx.moveTo(x,y));vctx.stroke()}
+      for(let i=0;i<20;i++){const a=(i*18-9)*Math.PI/180;const[x1,y1]=b2f(R.bullOut*Math.sin(a),-R.bullOut*Math.cos(a)),[x2,y2]=b2f(R.dbOut*Math.sin(a),-R.dbOut*Math.cos(a));vctx.beginPath();vctx.moveTo(x1,y1);vctx.lineTo(x2,y2);vctx.stroke()}
+      vctx.fillStyle=vctx.strokeStyle;vctx.font="600 "+Math.round(W/34)+"px Barlow,sans-serif";vctx.textAlign="center";vctx.textBaseline="middle";
+      for(let i=0;i<20;i++){const a=i*18*Math.PI/180;const[x,y]=b2f(195*Math.sin(a),-195*Math.cos(a));vctx.fillText(ORDER[i],x,y)}
+      vctx.restore();
+    }
+    if(calibrating&&tmpPts){
+      const names=["20","6","3","11"];
+      tmpPts.forEach((p,i)=>{const[x,y]=v2f(p[0],p[1]);
+        vctx.beginPath();vctx.arc(x,y,W/40,0,7);vctx.fillStyle=i===drag?"rgba(224,52,63,.55)":"rgba(18,28,24,.45)";vctx.fill();
+        vctx.lineWidth=2;vctx.strokeStyle="#FFD75A";vctx.stroke();
+        vctx.beginPath();vctx.moveTo(x-6,y);vctx.lineTo(x+6,y);vctx.moveTo(x,y-6);vctx.lineTo(x,y+6);vctx.stroke();
+        vctx.fillStyle="#fff";vctx.font="700 "+Math.round(W/36)+"px Barlow,sans-serif";vctx.textAlign="center";vctx.textBaseline="middle";vctx.fillText(names[i],x,y-W/24);
+      });
+    }
+    if(!calibrating&&game){
+      game.turn.forEach(d=>{if(!d.pt)return;const[x,y]=c2f(d.pt[0],d.pt[1]);
+        vctx.beginPath();vctx.arc(x,y,W/70,0,7);vctx.lineWidth=3;vctx.strokeStyle="#E0343F";vctx.stroke();
+        vctx.fillStyle="#fff";vctx.font="700 "+Math.round(W/34)+"px Barlow,sans-serif";vctx.textAlign="left";vctx.textBaseline="middle";vctx.fillText(lab(d),x+W/50,y);
+      });
+    }
+    if(det.debug&&!calibrating){
+      vctx.fillStyle="rgba(10,16,14,.75)";vctx.fillRect(0,view.height-W/22,W,W/22);
+      vctx.fillStyle="#fff";vctx.font="500 "+Math.round(W/42)+"px Barlow,sans-serif";vctx.textAlign="left";vctx.textBaseline="middle";
+      vctx.fillText(H?("Tache "+det.lastCR+" px (seuil "+Math.round(det.minPix())+")  bruit "+det.lastCP+"  stabilisation "+(det.lostN?"perdue":"ok")+"  "+det.phase):(autoCal.on?"Recherche de la cible (meilleur score "+autoCal.lastScore.toFixed(2)+", il faut 0.15)":"Pas de cible"),8,view.height-W/44);
+    }
+  }
+  requestAnimationFrame(draw);
+}
+
+/* ---------- calibration ---------- */
+function demoPts(){const s=demo.s;return[[demo.cx,demo.cy-170*s],[demo.cx+170*s,demo.cy],[demo.cx,demo.cy+170*s],[demo.cx-170*s,demo.cy]]}
+function useCalib(src){
+  if(demo&&!calib)calib={pts:demoPts(),vw,vh,hz:null};
+  updateH(calib.pts);det.setup(src||video);setStatus("Cible calibrée, en attente d'une fléchette","on");
+}
+function loadCalib(){
+  if(calib&&calib.vw===vw&&calib.vh===vh&&(hwZoom?calib.hz===zoomVal:calib.hz==null))useCalib();
+  else{calib=null;H=Hi=null;setStatus("Zoome sur la cible puis calibre-la","busy")}
+}
+$("calibBtn").onclick=()=>{
+  if(!vw)return;
+  frozen=document.createElement("canvas");frozen.width=vw;frozen.height=vh;frozen.getContext("2d").drawImage(video,0,0,vw,vh);
+  const o=det.off.slice();calibrating=true;wasAuto=autoCal.on||!H;autoCal.on=false;
+  const c=crop(),cx=c.sx+c.sw/2,cy=c.sy+c.sh/2,rr=Math.min(c.sw,c.sh)*.34;
+  tmpPts=(Hi&&calib)?calib.pts.map(p=>[p[0]+o[0],p[1]+o[1]]):[[cx,cy-rr],[cx+rr,cy],[cx,cy+rr],[cx-rr,cy]];
+  updateH(tmpPts);$("calibbar").classList.add("show");$("camtools").hidden=true;
+  setStatus("Calibration : image figée","busy");
+};
+function endCalib(){calibrating=false;drag=-1;$("calibbar").classList.remove("show");$("camtools").hidden=false}
+$("calibOk").onclick=()=>{
+  if(!H||!Hi){setStatus("Poignées mal placées, recommence","busy");return}
+  autoCal.stop();calib={pts:tmpPts,vw,vh,hz:hwZoom?zoomVal:null};if(!demo)save("fl_calib",calib);
+  endCalib();useCalib(frozen);frozen=null;
+};
+let wasAuto=false;
+$("calibCancel").onclick=()=>{endCalib();frozen=null;if(calib&&!wasAuto){updateH(calib.pts);if(!det.ctx)useCalib();setStatus("En attente d'une fléchette","on")}else autoCal.start()};
+$("refBtn").onclick=()=>{det.resetRef();det.pendingRemoval=false;setStatus("Référence enregistrée : cible vide","on")};
+$("detBtn").onclick=()=>{det.enabled=!det.enabled;$("detBtn").setAttribute("aria-pressed",det.enabled);det.resetRef();setStatus(det.enabled?"Détection auto activée":"Détection auto en pause",det.enabled?"on":"")};
+$("dbgBtn").onclick=()=>{det.debug=!det.debug;$("dbgBtn").setAttribute("aria-pressed",det.debug)};
+$("quitDemo").onclick=()=>location.reload();
+
+/* ---------- bloque la mise au point et la balance des blancs une fois la cible trouvée (évite les faux mouvements) ---------- */
+function lockCam(){
+  if(!track||demo||!track.getCapabilities)return;
+  try{const c=track.getCapabilities(),adv={};
+    if(c.focusMode&&c.focusMode.includes("manual"))adv.focusMode="manual";
+    if(c.whiteBalanceMode&&c.whiteBalanceMode.includes("manual"))adv.whiteBalanceMode="manual";
+    if(Object.keys(adv).length)track.applyConstraints({advanced:[adv]}).catch(()=>{});
+  }catch(e){}
+}
+/* ---------- calibration automatique ---------- */
+const autoCal={on:false,last:null,ctx:null,lastScore:0,
+  start(msg){this.on=true;this.last=null;this.lastScore=0;H=Hi=null;det.ctx=null;det.off=[0,0];setStatus(msg||"Recherche de la cible… vise-la","busy")},
+  stop(){this.on=false;this.last=null},
+  tick(){
+    if(!this.on||calibrating||!vw||video.readyState<2)return;
+    const sc=Math.min(1,640/Math.max(vw,vh)),W=Math.round(vw*sc),Hh=Math.round(vh*sc);
+    if(!this.ctx||this.ctx.canvas.width!==W||this.ctx.canvas.height!==Hh){const c=document.createElement("canvas");c.width=W;c.height=Hh;this.ctx=c.getContext("2d",{willReadFrequently:true})}
+    this.ctx.drawImage(video,0,0,vw,vh,0,0,W,Hh);
+    let r=null;try{r=findBoard(this.ctx.getImageData(0,0,W,Hh).data,W,Hh)}catch(e){console.warn(e)}
+    this.lastScore=r?Math.max(0,r.score):0;
+    if(!r||r.score<.15||r.rad<22){this.last=null;setStatus(r&&r.score>.07?"Cible presque trouvée… rapproche-toi ou zoome":"Recherche de la cible… vise-la avec le téléphone","busy");return}
+    const pts=r.pts.map(p=>[p[0]/sc,p[1]/sc]),rad=r.rad/sc;
+    if(this.last&&Math.max(...pts.map((p,i)=>Math.hypot(p[0]-this.last[i][0],p[1]-this.last[i][1])))<rad*.07){
+      this.stop();calib={pts,vw,vh,hz:hwZoom?zoomVal:null,auto:true};if(!demo)save("fl_calib",calib);
+      det.off=[0,0];updateH(pts);det.setup(video);lockCam();
+      setStatus("Cible détectée ✓ en attente d'une fléchette","on");
+      setMsg("Cible trouvée : lance, les points s'ajoutent tout seuls","green");
+      try{navigator.vibrate&&navigator.vibrate([30,40,30])}catch(e){}
+      return;
+    }
+    this.last=pts;setStatus("Cible repérée, ne bouge plus…","busy");
+  }
+};
+(function autoLoop(){autoCal.tick();setTimeout(autoLoop,autoCal.on?450:900)})();
+$("autoBtn").onclick=()=>{if(vw)autoCal.start()};
+
+/* ---------- detector (with hand-held stabilisation) ---------- */
+const det={
+  enabled:true,debug:false,pendingRemoval:false,PW:0,PH:0,bx:0,by:0,bw:1,bh:1,ctx:null,mask:null,maskN:0,
+  ref:null,refE:null,prev:null,phase:"attente",stable:0,settleT:0,lastCR:0,lastCP:0,dbg:null,dbgCtx:null,dbgImg:null,
+  off:[0,0],lostN:0,TW:128,TH:0,MG:0,EW:0,EH:0,tctx:null,tpl:null,
+  setup(src){
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    for(let i=0;i<48;i++){const a=i/48*2*Math.PI;const[x,y]=applyH(Hi,280*Math.sin(a),-280*Math.cos(a));x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y)}
+    this.bx=x0;this.by=y0;this.bw=Math.max(8,x1-x0);this.bh=Math.max(8,y1-y0);
+    const sc=Math.min(1,420/Math.max(this.bw,this.bh));
+    this.PW=Math.max(16,Math.round(this.bw*sc));this.PH=Math.max(16,Math.round(this.bh*sc));
+    const c=document.createElement("canvas");c.width=this.PW;c.height=this.PH;this.ctx=c.getContext("2d",{willReadFrequently:true});
+    this.dbg=document.createElement("canvas");this.dbg.width=this.PW;this.dbg.height=this.PH;this.dbgCtx=this.dbg.getContext("2d");this.dbgImg=this.dbgCtx.createImageData(this.PW,this.PH);
+    this.mask=new Uint8Array(this.PW*this.PH);this.maskN=0;
+    for(let y=0;y<this.PH;y++)for(let x=0;x<this.PW;x++){const[vx,vy]=this.p2v(x+.5,y+.5);const[bx,by]=applyH(H,vx,vy);if(Math.hypot(bx,by)<270&&vx>2&&vy>2&&vx<vw-2&&vy<vh-2){this.mask[y*this.PW+x]=1;this.maskN++}}
+    this.edge=new Uint8Array(this.PW*this.PH);const PW=this.PW,PH=this.PH;
+    for(let y=0;y<PH;y++)for(let x=0;x<PW;x++){const i=y*PW+x;if(!this.mask[i])continue;let e=x<3||y<3||x>=PW-3||y>=PH-3;
+      for(let dy=-3;dy<=3&&!e;dy++)for(let dx=-3;dx<=3;dx++){const nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<PW&&ny<PH&&!this.mask[ny*PW+nx]){e=true;break}}if(e)this.edge[i]=1}
+    this.mm=PW/560; // pixels de traitement par mm de cible (approx.)
+    // tracking template (gradient image of the board area, low resolution)
+    this.TH=Math.max(16,Math.round(this.TW*this.bh/this.bw));this.MG=Math.round(this.TW*.25);
+    this.EW=this.TW+2*this.MG;this.EH=this.TH+2*this.MG;
+    const tc=document.createElement("canvas");tc.width=this.EW;tc.height=this.EH;this.tctx=tc.getContext("2d",{willReadFrequently:true});
+    const d=this.grabTo(this.tctx,src,this.bx,this.by,this.bw,this.bh,this.TW,this.TH);
+    this.tpl=this.grad(this.gray(d,this.TW*this.TH),this.TW,this.TH);
+    this.off=[0,0];this.lostN=0;this.resetRef();
+  },
+  p2v(x,y){return[this.bx+x*this.bw/this.PW,this.by+y*this.bh/this.PH]},
+  resetRef(){this.ref=null;this.refG=null;this.prev=null;this.empty=null;this.nz=null;this.seenN=0;this.idleN=0;this.removing=0;this.handSeen=0;this.stillHand=0;this.phase="attente";this.stable=0},
+  grabTo(ctx,src,sx,sy,sw,sh,w,h){ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);ctx.drawImage(src,sx,sy,sw,sh,0,0,w,h);return ctx.getImageData(0,0,w,h).data},
+  gray(d,n){const g=new Float32Array(n);for(let i=0,j=0;i<n;i++,j+=4)g[i]=d[j]*.299+d[j+1]*.587+d[j+2]*.114;return g},
+  grad(g,w,h){const o=new Float32Array(w*h);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;o[i]=Math.abs(g[i+1]-g[i-1])+Math.abs(g[i+w]-g[i-w])}return o},
+  track(){
+    const ts=this.TW/this.bw,mgv=this.MG/ts;
+    const d=this.grabTo(this.tctx,video,this.bx+this.off[0]-mgv,this.by+this.off[1]-mgv,this.bw+2*mgv,this.bh+2*mgv,this.EW,this.EH);
+    const E=this.grad(this.gray(d,this.EW*this.EH),this.EW,this.EH),T=this.tpl,TW=this.TW,TH=this.TH,EW=this.EW,MG=this.MG;
+    const sad=(dx,dy)=>{let s=0;for(let y=2;y<TH-2;y+=2){const ro=(y+MG+dy)*EW+MG+dx,rt=y*TW;for(let x=2;x<TW-2;x+=2){const v=E[ro+x]-T[rt+x];s+=v<0?-v:v}}return s};
+    const Rr=MG-2;let best=1e18,bx=0,by=0,sum=0,cnt=0;
+    for(let dy=-Rr;dy<=Rr;dy+=2)for(let dx=-Rr;dx<=Rr;dx+=2){const s=sad(dx,dy);sum+=s;cnt++;if(s<best){best=s;bx=dx;by=dy}}
+    let b2=best,fx=bx,fy=by;
+    for(let dy=by-1;dy<=by+1;dy++)for(let dx=bx-1;dx<=bx+1;dx++){if(Math.abs(dx)>Rr||Math.abs(dy)>Rr)continue;const s=sad(dx,dy);if(s<b2){b2=s;fx=dx;fy=dy}}
+    if(b2>.9*(sum/cnt))return false; // pas de correspondance fiable
+    let sx=0,sy=0;
+    if(Math.abs(fx)<Rr){const a=sad(fx-1,fy),c=sad(fx+1,fy),den=a-2*b2+c;if(den>0)sx=Math.max(-.5,Math.min(.5,.5*(a-c)/den))}
+    if(Math.abs(fy)<Rr){const a=sad(fx,fy-1),c=sad(fx,fy+1),den=a-2*b2+c;if(den>0)sy=Math.max(-.5,Math.min(.5,.5*(a-c)/den))}
+    this.off[0]+=(fx+sx)/ts;this.off[1]+=(fy+sy)/ts;
+    return true;
+  },
+  setRef(cur){
+    this.ref=cur;const W=this.PW,Hh=this.PH,g=this.gray(cur,W*Hh),e=this.grad(g,W,Hh),E=new Uint8Array(W*Hh);
+    for(let i=0;i<E.length;i++)E[i]=Math.min(70,e[i]*.45);
+    this.refE=E;this.refG=e;
+  },
+  fine(){ // alignement précis sur l'image de référence (au pixel près)
+    if(!this.refG)return;
+    const W=this.PW,Hh=this.PH,M=4,FW=W+2*M,FH=Hh+2*M,sp=W/this.bw,mv=M/sp;
+    if(!this.fctx||this.fctx.canvas.width!==FW||this.fctx.canvas.height!==FH){const c=document.createElement("canvas");c.width=FW;c.height=FH;this.fctx=c.getContext("2d",{willReadFrequently:true})}
+    const d=this.grabTo(this.fctx,video,this.bx+this.off[0]-mv,this.by+this.off[1]-mv,this.bw+2*mv,this.bh+2*mv,FW,FH);
+    const G=this.grad(this.gray(d,FW*FH),FW,FH),T=this.refG,m=this.mask;
+    const sad=(dx,dy)=>{let s=0;for(let y=2;y<Hh-2;y+=2){const ro=(y+M+dy)*FW+M+dx,rt=y*W;for(let x=2;x<W-2;x+=2){if(!m[rt+x])continue;const v=G[ro+x]-T[rt+x];s+=v<0?-v:v}}return s};
+    let best=1e18,fx=0,fy=0;const Rf=M-1;
+    for(let dy=-Rf;dy<=Rf;dy++)for(let dx=-Rf;dx<=Rf;dx++){const s=sad(dx,dy);if(s<best){best=s;fx=dx;fy=dy}}
+    let sx=0,sy=0;
+    if(Math.abs(fx)<Rf){const a=sad(fx-1,fy),c=sad(fx+1,fy),den=a-2*best+c;if(den>0)sx=Math.max(-.5,Math.min(.5,.5*(a-c)/den))}
+    if(Math.abs(fy)<Rf){const a=sad(fx,fy-1),c=sad(fx,fy+1),den=a-2*best+c;if(den>0)sy=Math.max(-.5,Math.min(.5,.5*(a-c)/den))}
+    this.off[0]+=(fx+sx)/sp;this.off[1]+=(fy+sy)/sp;
+  },
+  thr(){return 62-settings.sens*4.5},
+  minPix(){return Math.max(8,(84-settings.sens*7)*(this.PW*this.PH)/(360*360))},
+  rdiff(a,b,i,j,t){ // changement réel : aucun pixel voisin (±2) de l'autre image ne ressemble (tolère les petits tremblements)
+    if(this.nz)t+=Math.min(18,this.nz[i]*.6);
+    if(this.diff(a,b,j)<=t)return false;
+    const W=this.PW,Hh=this.PH,x=i%W,y=(i/W)|0;
+    for(let dy=-2;dy<=2;dy++){const ny=y+dy;if(ny<0||ny>=Hh)continue;for(let dx=-2;dx<=2;dx++){const nx=x+dx;if(nx<0||nx>=W||(!dx&&!dy))continue;if(this.diff3(a,j,b,(ny*W+nx)*4)<=t)return false}}
+    return true;
+  },
+  diff3(a,j,b,k){const r=Math.abs(a[j]-b[k]),g=Math.abs(a[j+1]-b[k+1]),bl=Math.abs(a[j+2]-b[k+2]);return r>g?(r>bl?r:bl):(g>bl?g:bl)},
+  diff(a,b,j){const r=Math.abs(a[j]-b[j]),g=Math.abs(a[j+1]-b[j+1]),bl=Math.abs(a[j+2]-b[j+2]);return r>g?(r>bl?r:bl):(g>bl?g:bl)},
+  step(){
+    if(!this.enabled||calibrating||!H||!this.ctx||!vw||video.readyState<2)return;
+    if(!this.track()){
+      this.lostN++;this.prev=null;
+      if(this.lostN===10)setStatus("Cible perdue : recadre la cible dans l'image","busy");
+      if(this.lostN>=40){this.lostN=0;autoCal.start("Cible perdue : nouvelle recherche…")}
+      return;
+    }
+    if(this.lostN>=10)setStatus("Cible retrouvée","on");
+    this.lostN=0;this.fine();
+    const cur=this.grabTo(this.ctx,video,this.bx+this.off[0],this.by+this.off[1],this.bw,this.bh,this.PW,this.PH);
+    const N=this.PW*this.PH;
+    {const kx=this.PW/this.bw,ky=this.PH/this.bh,mg=8;this.vb=[Math.ceil((mg-this.bx-this.off[0])*kx),Math.floor((vw-mg-this.bx-this.off[0])*kx),Math.ceil((mg-this.by-this.off[1])*ky),Math.floor((vh-mg-this.by-this.off[1])*ky)]}
+    if(!this.ref){this.setRef(cur);this.empty=cur;this.prev=cur;this.nz=new Float32Array(N).fill(3);this.learn=0;return}
+    if(!this.prev)this.prev=cur;
+    const t=this.thr(),m=this.mask,idle=this.phase==="attente";
+    // apprentissage du bruit propre à chaque pixel (grain, scintillement des lampes, reflets)
+    const learnNz=(skip)=>{const nz=this.nz,p=this.prev,fast=this.learn>0;
+      for(let i=0,j=0;i<N;i++,j+=4){if(!m[i]||(skip&&skip[i]))continue;const d=this.diff(cur,p,j);nz[i]=d>nz[i]?nz[i]*(fast?.4:.8)+d*(fast?.6:.2):nz[i]*.985+d*.015}};
+    if(this.learn>0){learnNz(null);this.learn--;this.prev=cur;this.setRef(cur);this.empty=cur;if(!this.learn)setStatus("Prêt : en attente d'une fléchette","on");else setStatus("Calibrage du bruit de l'image…","busy");return}
+    const rA=this.norm(this.ref,cur),pA=this.norm(this.prev,cur);
+    if(!this.bin||this.bin.length!==N){this.bin=new Uint8Array(N);this.binP=new Uint8Array(N)}
+    const bin=this.bin,binP=this.binP;let cR=0,cP=0;
+    const dbg=this.debug?this.dbgImg.data:null;
+    for(let i=0,j=0;i<N;i++,j+=4){
+      bin[i]=0;binP[i]=0;if(dbg)dbg[j+3]=0;
+      if(!m[i]||!this.inV(i))continue;
+      if(this.rdiff(cur,rA,i,j,t)){bin[i]=1;cR++;if(dbg){dbg[j]=255;dbg[j+1]=40;dbg[j+2]=60;dbg[j+3]=200}}
+      if(!idle&&this.rdiff(cur,pA,i,j,t)){binP[i]=1;cP++}
+    }
+    if(dbg)this.dbgCtx.putImageData(this.dbgImg,0,0);
+    if(idle&&this.nz)learnNz(bin);
+    this.prev=cur;
+    const minP=this.minPix(),W=this.PW;
+    // plus grosse tache compacte (une bande de lumière ou un tremblement couvrent toute la cible : ignorés)
+    const compact=c=>c.x1-c.x0<W*.55&&c.y1-c.y0<this.PH*.55;
+    let big=0,hand=false;if(cR>=minP*.7){const cs=this.blobs(bin,minP*.5);hand=cs.some(c=>this.isHand(c));const cc=cs.filter(c=>compact(c)&&!this.isHand(c));big=cc.length?cc[0].n:0}
+    this.lastCR=big;
+    if(hand)this.handSeen=Date.now();
+    if(idle&&!hand&&big<minP&&((this.handSeen&&Date.now()-this.handSeen>300)||((this.removing||this.pendingRemoval||(game.turn.length&&locked()))&&Date.now()-(this.lastChk||0)>1200))){
+      this.lastChk=Date.now();this.analyze(cur,cR,minP,t);return}
+    if(idle){
+      if(hand){this.seenN=0;this.phase="analyse";this.stable=0;this.settleT=Date.now();setStatus("Main devant la cible…","busy")}
+      else if(big>=minP){this.seenN=(this.seenN||0)+1;if(this.seenN>=2){this.phase="analyse";this.stable=0;this.settleT=Date.now();this.seenN=0;setStatus("Analyse…","busy")}}
+      else{this.seenN=0;this.idleN=(this.idleN||0)+1;
+        if(this.idleN>=4){this.idleN=0;this.setRef(cur);if(!game.turn.length&&!this.pendingRemoval&&!this.removing)this.empty=cur}}
+    }else{
+      let bigP=0;if(cP>=minP*.5){const cs=this.blobs(binP,minP*.4);bigP=cs.length?cs[0].n:0}
+      this.lastCP=bigP;
+      this.stable=bigP<minP*.6?this.stable+1:0;
+      const el=Date.now()-this.settleT;
+      if(this.stable>=2||el>2500){this.phase="attente";this.analyze(cur,cR,minP,t)}
+    }
+    if(this.removing&&Date.now()-this.removing>8000)this.removing=0;
+  },
+  isHand(c){ // main, bras, ombre du joueur : trop gros pour une fléchette, ou entre par le bord avec une forme épaisse
+    const mm2=c.n/(this.mm*this.mm);if(mm2>3000*this.tiltK())return true;
+    let e=0;for(const p of c.pix)if(this.isEdge(p)){e++;if(e>=3)break}
+    if(e<3||mm2<700)return false;
+    const len=Math.hypot(c.x1-c.x0,c.y1-c.y0)/this.mm+1;return mm2/len>22;
+  },
+  tiltK(){ // vue de biais : une fléchette paraît plus grande
+    if(this._tk&&this._tkH===H)return this._tk;const p=H?this.persp(this.PW/2,this.PH/2):null;this._tkH=H;return this._tk=1+1.4*Math.min(1.5,p?p.tanT:0)},
+  isGone(bp,bE){let k=0;for(const p of bp)if(bE[p])k++;return k<bp.length*.25},
+  shadow(cur,ref,j){ // pixel simplement assombri (ombre d'une fléchette, du joueur) : même teinte, plus sombre
+    const r0=ref[j],g0=ref[j+1],b0=ref[j+2];if(r0+g0+b0<90)return false;
+    const a=cur[j]/(r0+1),b=cur[j+1]/(g0+1),c=cur[j+2]/(b0+1),mx=a>b?(a>c?a:c):(b>c?b:c),mn=a<b?(a<c?a:c):(b<c?b:c);
+    return mx<.93&&mn>.3&&mx-mn<.13;
+  },
+  inV(i){const v=this.vb;if(!v)return true;const x=i%this.PW,y=(i/this.PW)|0;return x>=v[0]&&x<=v[1]&&y>=v[2]&&y<=v[3]},
+  isEdge(p){if(this.edge[p])return true;const v=this.vb;if(!v)return false;const x=p%this.PW,y=(p/this.PW)|0;return x<v[0]+3||x>v[1]-3||y<v[2]+3||y>v[3]-3},
+  touchesEdge(c){let e=0;for(const p of c.pix)if(this.isEdge(p)&&++e>=3)return true;return false},
+  endTurn(){ // fléchettes retirées : les fléchettes non vues (hors cible, rebond, mur) comptent comme ratées
+    const n=3-game.turn.length;let k=0;
+    for(let i=0;i<n&&!locked();i++){game.turn.push(Object.assign(mk(0,0),{auto:true,pad:true}));k++}
+    if(k)voice.say(k===1?"Une ratée":k+" ratées",k===1?"One miss":k+" misses");
+    nextTurn(true);
+  },
+  norm(refArr,cur){ // compense les changements de luminosité automatiques de la caméra
+    const m=this.mask,N=this.PW*this.PH;let a0=0,a1=0,a2=0,b0=0,b1=0,b2=0;
+    for(let i=0,j=0;i<N;i+=3,j+=12){if(!m[i])continue;a0+=cur[j];a1+=cur[j+1];a2+=cur[j+2];b0+=refArr[j];b1+=refArr[j+1];b2+=refArr[j+2]}
+    const g=[a0/(b0||1),a1/(b1||1),a2/(b2||1)].map(v=>Math.min(1.5,Math.max(.67,v)));
+    if(Math.abs(g[0]-1)<.015&&Math.abs(g[1]-1)<.015&&Math.abs(g[2]-1)<.015)return refArr;
+    const o=new Uint8ClampedArray(refArr.length);
+    for(let j=0;j<o.length;j+=4){o[j]=refArr[j]*g[0];o[j+1]=refArr[j+1]*g[1];o[j+2]=refArr[j+2]*g[2];o[j+3]=255}
+    return o;
+  },
+  analyze(cur,cR,minP,t){
+    const m=this.mask,W=this.PW,N=W*this.PH,eA=this.norm(this.empty,cur),rA=this.norm(this.ref,cur);
+    const bE=new Uint8Array(N),bR=new Uint8Array(N);let nR=0;
+    for(let i=0,j=0;i<N;i++,j+=4){if(!m[i]||!this.inV(i))continue;if(this.rdiff(cur,eA,i,j,t)&&!this.shadow(cur,eA,j))bE[i]=1;if(this.rdiff(cur,rA,i,j,t)){nR++;if(!this.shadow(cur,rA,j))bR[i]=1}}
+    const cpt=c=>c.x1-c.x0<W*.55&&c.y1-c.y0<this.PH*.55,cE=this.blobs(bE,minP*.5).filter(c=>cpt(c)&&!this.isHand(c)&&c.n/(this.mm*this.mm)<2600*this.tiltK()),bigE=cE.length?cE[0].n:0;
+    // 0) main ou gros objet devant la cible : on attend qu'il parte, sans rien compter
+    const allR=this.blobs(bR,minP*.5);
+    if(nR>this.maskN*.22||allR.some(c=>this.isHand(c))){
+      this.handSeen=Date.now();
+      // immobile depuis un moment : ce n'est pas une main mais un changement durable (lumière, objet posé) -> nouvelle référence
+      if(this.stable>=2){if(!this.stillHand)this.stillHand=Date.now();else if(Date.now()-this.stillHand>4000){this.stillHand=0;this.setRef(cur);setStatus("Changement de l'image ignoré","on");return}}else this.stillHand=0;
+      setStatus("Main devant la cible…","busy");return}
+    this.stillHand=0;
+    const hadHand=this.handSeen;this.handSeen=0;
+    // les fléchettes de ce tour sont-elles encore plantées ? (on regarde autour de chaque pointe)
+    const tips=this.pendingRemoval?(this.pendPP||[]):game.turn.filter(o=>o.bp).map(o=>o.bp);
+    const gone=tips.length>0&&tips.every(bp=>this.isGone(bp,bE));
+    // 1) la cible est redevenue vide : fléchettes retirées
+    if(bigE<minP*.8||(gone&&(this.removing||this.pendingRemoval||locked()))){
+      this.setRef(cur);this.empty=cur;const wasRemoving=this.removing;this.removing=0;
+      if(this.pendingRemoval){this.pendingRemoval=false;setStatus("Cible vide, à toi de jouer","on");return}
+      // aucune main vue et tour pas fini : la (les) fléchette(s) sont tombées -> ratées, le joueur continue
+      if(game.turn.length&&!game.over&&!hadHand&&!wasRemoving&&!locked()&&game.turn.some(o=>o.auto&&o.num!==0)){
+        snap();game.turn=game.turn.map(o=>o.auto&&o.num!==0?Object.assign(mk(0,0),{auto:true,fell:true}):o);render();
+        voice.say("Raté, fléchette tombée","Miss, dart fell out",true);setStatus("Fléchette tombée : ratée","hit");return}
+      if(game.turn.length&&!game.over){setStatus("Fléchettes retirées, joueur suivant","on");this.endTurn();return}
+      setStatus(wasRemoving?"Cible vide":"En attente d'une fléchette","on");return;
+    }
+    // 2) une main est passée devant la cible : on ne compte RIEN (on ne lance pas avec la main sur la cible)
+    if(hadHand){
+      this.setRef(cur);
+      const turnTips=this.pendingRemoval?(this.pendPP||[]):game.turn.filter(o=>o.bp).map(o=>o.bp);
+      const someGone=turnTips.some(bp=>this.isGone(bp,bE));
+      if(someGone||this.removing){this.removing=Date.now();setStatus("Retrait des fléchettes…","busy");return}
+      setStatus("Main retirée, rien compté","on");return;
+    }
+    // 3) taches nouvelles par rapport à l'état précédent
+    const cs=this.blobs(bR,minP*.5).filter(c=>c.n>=minP*.8);
+    const added=[];let removed=0;
+    for(const c of cs){
+      if(c.x1-c.x0>W*.55||c.y1-c.y0>this.PH*.55)continue; // trop étalé : tremblement, pas une fléchette
+      if(c.n/(this.mm*this.mm)>2600*this.tiltK()||this.isHand(c))continue; // trop gros ou main : pas une fléchette
+      let k=0;for(const p of c.pix)if(bE[p])k++;
+      if(k>c.n*.5)added.push(c);else removed++;
+    }
+    // morceaux d'une même fléchette (pointe / empennage séparés) : on les regroupe
+    const gap=W*.035;
+    for(let i=0;i<added.length;i++)for(let k=i+1;k<added.length;k++){const a=added[i],b=added[k];
+      if(b.x0-a.x1<gap&&a.x0-b.x1<gap&&b.y0-a.y1<gap&&a.y0-b.y1<gap){a.pix=a.pix.concat(b.pix);a.n+=b.n;a.x0=Math.min(a.x0,b.x0);a.y0=Math.min(a.y0,b.y0);a.x1=Math.max(a.x1,b.x1);a.y1=Math.max(a.y1,b.y1);added.splice(k,1);k=i}}
+    for(let i=added.length-1;i>0;i--)if(added[i].n<minP*1.3)added.splice(i,1);
+    if(removed&&!added.length){
+      this.setRef(cur);
+      if(!game.turn.length&&!this.pendingRemoval){this.empty=cur;setStatus("En attente d'une fléchette","on");return}
+      if(this.removing||this.pendingRemoval){setStatus("Retrait des fléchettes…","busy");return}
+      // une fléchette a disparu sans qu'une main passe : elle est tombée -> ratée
+      let fell=0;game.turn.forEach((o,i)=>{if(o.auto&&o.bp&&o.num!==0&&this.isGone(o.bp,bE)){if(!fell)snap();game.turn[i]=Object.assign(mk(0,0),{auto:true,fell:true});fell++}});
+      if(fell){render();voice.say("Raté, fléchette tombée","Miss, dart fell out",true);setStatus("Fléchette tombée : ratée","hit");return}
+      setStatus("En attente d'une fléchette","on");return;
+    }
+    this.setRef(cur);
+    if(!added.length){setStatus("En attente d'une fléchette","on");return}
+    if(added.length>3){setStatus("Changement de lumière ignoré","on");return}
+    if(this.removing){setStatus("Retire toutes les fléchettes…","busy");return}
+    if(this.pendingRemoval||locked()){setStatus("Retire les fléchettes pour continuer","busy");return}
+    let hits=0;
+    for(const c of added.slice(0,3)){
+      if(locked())break;
+      const blob=this.blobFull(c.pix,cur,rA,t);
+      const[tx,ty]=this.tip(blob,cur,rA,t);
+      const[vx,vy]=this.p2v(tx+.5,ty+.5),[bx,by]=applyH(H,vx,vy);
+      if(game.turn.some(o=>o.b&&Math.hypot(o.b[0]-bx,o.b[1]-by)<2.5))continue;
+      const d=scoreAt(bx,by);d.auto=true;d.pt=[vx,vy];d.b=[bx,by];d.pp=[tx,ty];d.bp=c.pix.filter((p,k)=>k%Math.max(1,Math.floor(c.n/160))===0);
+      if(addDart(d)){hits++;flashDart(game.turn.length-1);setStatus("Touché : "+lab(d)+" ("+d.value+")","hit")}
+    }
+    if(hits){try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}}
+    else setStatus("Même fléchette, ignorée","on");
+  },
+  blobs(bin,minN){ // toutes les taches (pixels proches regroupés), de la plus grosse à la plus petite
+    const W=this.PW,Hh=this.PH,N=W*Hh;
+    if(!this.dil||this.dil.length!==N){this.dil=new Uint8Array(N);this.seen=new Uint8Array(N);this.stk=new Int32Array(N)}
+    const dil=this.dil,seen=this.seen,stack=this.stk;dil.fill(0);seen.fill(0);
+    for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){if(!bin[y*W+x])continue;for(let dy=-1;dy<=1;dy++){const ny=y+dy;if(ny<0||ny>=Hh)continue;for(let dx=-1;dx<=1;dx++){const nx=x+dx;if(nx>=0&&nx<W)dil[ny*W+nx]=1}}}
+    const out=[];
+    for(let i0=0;i0<N;i0++){
+      if(!dil[i0]||seen[i0])continue;
+      let sp=0;const pix=[];let x0=W,y0=Hh,x1=0,y1=0;stack[sp++]=i0;seen[i0]=1;
+      while(sp){const p=stack[--sp],px=p%W,py=(p/W)|0;
+        if(bin[p]){pix.push(p);if(px<x0)x0=px;if(px>x1)x1=px;if(py<y0)y0=py;if(py>y1)y1=py}
+        for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const nx=px+dx,ny=py+dy;if(nx<0||ny<0||nx>=W||ny>=Hh)continue;const q=ny*W+nx;if(dil[q]&&!seen[q]){seen[q]=1;stack[sp++]=q}}}
+      if(pix.length>=minN)out.push({n:pix.length,pix,x0,y0,x1,y1});
+    }
+    return out.sort((a,b)=>b.n-a.n);
+  },
+  comps(bin,W,Hh,x0,y0,x1,y1){ // plus grande composante dans une zone
+    const N=W*Hh,dil=new Uint8Array(N);
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){if(!bin[y*W+x])continue;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const nx=x+dx,ny=y+dy;if(nx>=x0&&ny>=y0&&nx<x1&&ny<y1)dil[ny*W+nx]=1}}
+    const seen=new Uint8Array(N),stack=new Int32Array(N);let best=null,bestN=0;
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=y*W+x;
+      if(!dil[i]||seen[i])continue;
+      let sp=0;const comp=[];let n=0;stack[sp++]=i;seen[i]=1;
+      while(sp){const p=stack[--sp];if(bin[p]){comp.push(p);n++}const px=p%W,py=(p/W)|0;
+        for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const nx=px+dx,ny=py+dy;if(nx<x0||ny<y0||nx>=x1||ny>=y1)continue;const q=ny*W+nx;if(dil[q]&&!seen[q]){seen[q]=1;stack[sp++]=q}}}
+      if(n>bestN){bestN=n;best=comp}
+    }
+    return best;
+  },
+  blobFull(core,cur,ref,t){ // autour de la tache, différence fine pour récupérer le fût jusqu'à la pointe
+    const W=this.PW,Hh=this.PH,N=W*Hh,m=this.mask,E=this.refE;
+    let x0=W,y0=Hh,x1=0,y1=0;for(const p of core){const x=p%W,y=(p/W)|0;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}
+    const pad=Math.round(W*.12);x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(W,x1+pad+1);y1=Math.min(Hh,y1+pad+1);
+    const fb=new Uint8Array(N);
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=y*W+x;if(m[i]&&this.diff(cur,ref,i*4)>t+E[i]&&!this.shadow(cur,ref,i*4))fb[i]=1}
+    for(const p of core)fb[p]=1; // (le cœur est déjà sans ombre)
+    const full=this.comps(fb,W,Hh,x0,y0,x1,y1);
+    return(full&&full.length>=core.length&&full.length<core.length*4)?full:core;
+  },
+  tip(blob,cur,ref,t){
+    // La pointe métallique = l'endroit où la fléchette entre dans la cible. Vu de biais, le reste de la fléchette
+    // (fût, empennage) est décalé dans une direction connue grâce à la perspective : on prend le bout de la fléchette
+    // situé de ce côté, puis on suit la fine pointe en métal jusqu'au bout.
+    const W=this.PW,Hh=this.PH,n=blob.length;let mx=0,my=0;for(const p of blob){mx+=p%W;my+=(p/W)|0}mx/=n;my/=n;
+    const pca=(pts)=>{let ax=0,ay=0;for(const[x,y]of pts){ax+=x;ay+=y}ax/=pts.length;ay/=pts.length;let sxx=0,syy=0,sxy=0;
+      for(const[x,y]of pts){sxx+=(x-ax)**2;syy+=(y-ay)**2;sxy+=(x-ax)*(y-ay)}const k=pts.length,tr=(sxx+syy)/k,dt=Math.sqrt(Math.max(0,((sxx-syy)/k)**2/4+(sxy/k)**2));
+      const a=.5*Math.atan2(2*sxy,sxx-syy);return{ex:Math.cos(a),ey:Math.sin(a),el:Math.sqrt((tr/2+dt)/Math.max(.25,tr/2-dt)),cx:ax,cy:ay}};
+    const P=blob.map(p=>[p%W,(p/W)|0]),g=pca(P);
+    // direction "vers la pointe"
+    const tm=tipMode();let u=null;
+    if(tm==="bottom")u=[0,1];else if(tm==="top")u=[0,-1];
+    else if(tm==="center"){const[cvx,cvy]=applyH(Hi,0,0),cx=(cvx-this.bx)*W/this.bw-mx,cy=(cvy-this.by)*Hh/this.bh-my,l=Math.hypot(cx,cy)||1;u=[cx/l,cy/l]}
+    else{const pv=this.persp(mx,my);
+      if(pv){ // pointe = côté téléphone (perspective) ; l'empennage tombe aussi un peu vers le bas (gravité)
+        const tt=pv.k*.3,vx=pv.u[0]*150*tt,vy=pv.u[1]*150*tt-18*this.PH/this.bh*this.bw/this.PW,l=Math.hypot(vx,vy);u=[vx/l,vy/l]}
+      else u=[0,-1]; // téléphone pile en face : l'empennage tombe sous la pointe
+    }
+    if(!u)return[Math.round(mx),Math.round(my)]; // vue de face : la pointe est sous l'empennage
+    // étendue de la fléchette dans cette direction
+    let mn=1e9,mxp=-1e9;const pr=P.map(([x,y])=>{const v=x*u[0]+y*u[1];if(v<mn)mn=v;if(v>mxp)mxp=v;return v});
+    const L=mxp-mn;
+    // axe local près de la pointe (fût) pour suivre la pointe même si la fléchette penche
+    const near=P.filter((q,k)=>pr[k]>mxp-Math.max(4,L*.35));let dx=u[0],dy=u[1];
+    if(near.length>=6){const a=pca(near);if(a.el>2){const sgn=a.ex*u[0]+a.ey*u[1]>=0?1:-1,ax=a.ex*sgn,ay=a.ey*sgn;if(ax*u[0]+ay*u[1]>.6){dx=ax;dy=ay}}}
+    // centre du bout (pas un coin)
+    let tx=0,ty=0,tn=0;P.forEach(([x,y],k)=>{if(pr[k]>=mxp-1.6){tx+=x;ty+=y;tn++}});tx/=tn;ty/=tn;
+    if(!cur||!ref)return[Math.round(tx),Math.round(ty)];
+    // géométrie : vue de biais, la partie d'une fléchette à h mm de la cible est décalée de h·tan(angle) dans l'image
+    const pv=this.persp(tx,ty);let mmpx=0;
+    if(pv&&H){const[a0,a1]=this.p2v(tx,ty),[b0,b1]=this.p2v(tx+dx,ty+dy),A=applyH(H,a0,a1),B=applyH(H,b0,b1);mmpx=Math.hypot(B[0]-A[0],B[1]-A[1])}
+    const tanT=pv?pv.tanT:0,ep=mmpx>0?Math.min(L*.8,20*tanT/mmpx):0; // longueur de la pointe (~20 mm) dans l'image
+    // profil de largeur dans la tache : la pointe est fine, le fût est épais
+    const qx=-dy,qy=dx,S=Math.max(4,Math.round(L*.45)),lo=new Float32Array(S+1).fill(1e9),hi=new Float32Array(S+1).fill(-1e9);
+    for(const[x,y]of P){const s=Math.round(-((x-tx)*dx+(y-ty)*dy));if(s<0||s>S)continue;const b=(x-tx)*qx+(y-ty)*qy;if(b<lo[s])lo[s]=b;if(b>hi[s])hi[s]=b}
+    const wid=k=>hi[k]>=lo[k]?hi[k]-lo[k]+1:0,ws=[];for(let k=3;k<=Math.max(4,Math.round(L*.3))&&k<=S;k++)if(wid(k))ws.push(wid(k));
+    ws.sort((a,b)=>a-b);const wref=ws.length?ws[ws.length>>1]:3;let front=0;
+    for(let k=0;k<=S;k++)if(wid(k)>=Math.max(2.5,wref*.6)){front=k;break}
+    // on continue le long de la fléchette (fût puis pointe, souvent trop fins ou peu contrastés pour la 1re détection)
+    const tl=Math.max(8,t*.38),m=this.mask,nz=this.nz;
+    const maxS=Math.max(4,Math.round(mmpx>0?Math.min(L*1.2,85*tanT/mmpx+4):L*.3));
+    let lastAny=0,lastWide=0,miss=0;
+    for(let st=1;st<=maxS;st++){let n=0;
+      for(const o of[-2,-1,0,1,2]){const x=Math.round(tx+dx*st+qx*o),y=Math.round(ty+dy*st+qy*o);if(x<0||y<0||x>=W||y>=Hh)continue;const i=y*W+x;
+        if(m[i]&&this.diff(cur,ref,i*4)>tl+(nz?Math.min(14,nz[i]*.5):0)&&!this.shadow(cur,ref,i*4))n++}
+      if(n){lastAny=st;miss=0;if(n>=3)lastWide=st}else if(++miss>3)break}
+    let ext,ptLen,barrel;
+    if(lastWide>=2){barrel=lastWide;ptLen=lastAny-lastWide}else{barrel=-front;ptLen=front+lastAny}
+    if(ep<2||ptLen>=ep*.85)ext=lastAny;         // la pointe en métal est visible : on la suit jusqu'au bout
+    else ext=Math.max(lastAny,barrel+ep);       // pointe peu visible : bout du fût + longueur de pointe
+    return[Math.round(tx+dx*ext),Math.round(ty+dy*ext)];
+  },
+  persp(mx,my){ // direction (dans l'image de traitement) vers laquelle se trouve la pointe, d'après l'inclinaison du téléphone
+    if(!H||!Hi)return null;const[vx,vy]=this.p2v(mx,my),[bx,by]=applyH(H,vx,vy);
+    const e=2,[x0,y0]=applyH(Hi,bx,by),[x1,y1]=applyH(Hi,bx+e,by),[x2,y2]=applyH(Hi,bx,by+e);
+    const sx=this.PW/this.bw,sy=this.PH/this.bh,a=(x1-x0)*sx/e,c=(y1-y0)*sy/e,b=(x2-x0)*sx/e,d=(y2-y0)*sy/e;
+    // valeurs singulières du jacobien : rapport = cos(inclinaison)
+    const p=a*a+c*c,q=a*b+c*d,r=b*b+d*d,tr=p+r,dd=Math.sqrt(Math.max(0,(p-r)*(p-r)/4+q*q)),s1=Math.sqrt(tr/2+dd),s2=Math.sqrt(Math.max(0,tr/2-dd));
+    const cs=s2/s1,tanT=Math.sqrt(Math.max(0,1-cs*cs))/Math.max(.2,cs);
+    // côté le plus proche du téléphone = là où la cible paraît la plus grande (w grandit)
+    const w=v=>Math.abs(H[6]*v[0]+H[7]*v[1]+H[8]);
+    const gx=(w([vx+1,vy])-w([vx-1,vy]))/2/sx,gy=(w([vx,vy+1])-w([vx,vy-1]))/2/sy,gl=Math.hypot(gx,gy);
+    if(!gl)return null;
+    return{u:[gx/gl,gy/gl],k:Math.min(1,tanT/.3),tanT};
+  }
+};
+
+/* ---------- demo: virtual board, virtual darts, simulated hand shake ---------- */
+$("demoBtn").onclick=()=>{voice.prime();
+  const C=document.createElement("canvas");C.width=960;C.height=720;const g=C.getContext("2d");
+  const s=240/170,cx=480,cy=360;demo={s,cx,cy,real:true};
+  const B=document.createElement("canvas");B.width=B.height=760;const b=B.getContext("2d"),bc=380;
+  const wedge=(r1,r2,i,col)=>{const a0=(i*18-9-90)*Math.PI/180,a1=a0+18*Math.PI/180;b.beginPath();b.arc(bc,bc,r2*s,a0,a1);b.arc(bc,bc,r1*s,a1,a0,true);b.closePath();b.fillStyle=col;b.fill()};
+  b.fillStyle="#151515";b.beginPath();b.arc(bc,bc,225*s,0,7);b.fill();
+  for(let i=0;i<20;i++){const dk=i%2===0,sg=dk?"#1c1c1c":"#e6d9bb",rg=dk?"#c8202f":"#1f8a4c";
+    wedge(R.bullOut,R.trIn,i,sg);wedge(R.trIn,R.trOut,i,rg);wedge(R.trOut,R.dbIn,i,sg);wedge(R.dbIn,R.dbOut,i,rg)}
+  b.fillStyle="#1f8a4c";b.beginPath();b.arc(bc,bc,R.bullOut*s,0,7);b.fill();
+  b.fillStyle="#c8202f";b.beginPath();b.arc(bc,bc,R.bullIn*s,0,7);b.fill();
+  b.strokeStyle="#9a9a9a";b.lineWidth=1.2;
+  for(const r of [R.bullIn,R.bullOut,R.trIn,R.trOut,R.dbIn,R.dbOut]){b.beginPath();b.arc(bc,bc,r*s,0,7);b.stroke()}
+  for(let i=0;i<20;i++){const a=(i*18-9)*Math.PI/180;b.beginPath();b.moveTo(bc+R.bullOut*s*Math.sin(a),bc-R.bullOut*s*Math.cos(a));b.lineTo(bc+R.dbOut*s*Math.sin(a),bc-R.dbOut*s*Math.cos(a));b.stroke()}
+  b.fillStyle="#f2f2f2";b.font="600 24px Arial,sans-serif";b.textAlign="center";b.textBaseline="middle";
+  for(let i=0;i<20;i++){const a=i*18*Math.PI/180;b.fillText(ORDER[i],bc+197*s*Math.sin(a),bc-197*s*Math.cos(a))}
+  const cols=["#ffcc00","#2aa9ff","#ff4fa3"];let darts=[],label="en attente…",jx=0,jy=0,vx=0,vy=0,shake=false,hand=null;
+  const hit=()=>{const i=Math.floor(Math.random()*20),k=Math.random();let r;
+    if(k<.08)r=Math.random()*14;else if(k<.5)r=R.bullOut+4+Math.random()*(R.trIn-R.bullOut-8);else if(k<.68)r=R.trIn+2+Math.random()*(R.trOut-R.trIn-4);
+    else if(k<.86)r=R.trOut+4+Math.random()*(R.dbIn-R.trOut-8);else r=R.dbIn+2+Math.random()*(R.dbOut-R.dbIn-4);
+    const a=(i*18+(Math.random()*12-6))*Math.PI/180;return{bx:r*Math.sin(a),by:-r*Math.cos(a)}};
+  let t=0;
+  setInterval(()=>{ // timeline, 1 tick = 100 ms
+    t++;if(t===15)shake=true;
+    const cyc=(t-20)%150;if(t<20)return;
+    if(cyc===0||cyc===35||cyc===70){const h=hit();h.col=cols[darts.length%3];darts.push(h);label="dernière fléchette = "+lab(scoreAt(h.bx,h.by))}
+    if(cyc===100){hand={x:0,y:-60};label="retrait à la main"}
+    if(cyc===110)darts=[];
+    if(cyc===120){hand=null;label="fléchettes retirées"}
+  },100);
+  const frame=()=>{
+    if(shake){vx+=(Math.random()-.5)*1.2;vy+=(Math.random()-.5)*1.2;vx*=.9;vy*=.9;jx=Math.max(-16,Math.min(16,(jx+vx)*.97));jy=Math.max(-16,Math.min(16,(jy+vy)*.97))}
+    g.fillStyle="#4a4037";g.fillRect(0,0,960,720);
+    g.save();g.translate(cx+jx,cy+jy);g.rotate(jx*.0004);g.drawImage(B,-bc,-bc);
+    for(const d of darts){const x=d.bx*s,y=d.by*s;
+      g.lineCap="round";
+      g.strokeStyle="#c9c9c9";g.lineWidth=3;g.beginPath();g.moveTo(x,y);g.lineTo(x+2,y-12);g.stroke();
+      g.strokeStyle="#4b4b4b";g.lineWidth=8;g.beginPath();g.moveTo(x+2,y-12);g.lineTo(x+7,y-42);g.stroke();
+      g.strokeStyle=d.col;g.lineWidth=4;g.beginPath();g.moveTo(x+7,y-42);g.lineTo(x+10,y-60);g.stroke();
+      g.fillStyle=d.col;g.beginPath();g.moveTo(x+10,y-58);g.lineTo(x+27,y-98);g.lineTo(x-7,y-98);g.closePath();g.fill()}
+    if(hand){g.fillStyle="#d9a07a";g.beginPath();g.ellipse(hand.x*s+40,hand.y*s+60,120,90,-.3,0,7);g.fill();
+      for(let f=0;f<4;f++){g.beginPath();g.ellipse(hand.x*s-60+f*35,hand.y*s-30,16,60,.1,0,7);g.fill()}
+      g.fillRect(hand.x*s+20,hand.y*s+100,110,400)}
+    g.restore();
+    g.fillStyle="rgba(0,0,0,.55)";g.fillRect(0,676,330,44);g.fillStyle="#fff";g.font="600 19px Arial,sans-serif";g.textAlign="left";g.textBaseline="middle";g.fillText("Démo : "+label,12,698);
+    requestAnimationFrame(frame);
+  };
+  frame();
+  calib=null;
+  startStream(C.captureStream(30),true).catch(()=>camFail("La démo n'a pas pu démarrer sur ce navigateur."));
+};
+
+newGame();
+setMsg("Prêt : active la caméra ou compte à la main","");
+})();
+</script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load",function(){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
