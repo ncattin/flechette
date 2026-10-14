@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<title>Fléchette</title>
+<title>Pointe IA</title>
 <meta name="description" content="Fléchette : compte tes fléchettes automatiquement avec la caméra de ton téléphone.">
 <link rel="manifest" href="manifest.webmanifest">
 <!-- appli Android : bibliothèque Capacitor (branche les modules natifs : voix, partage, bouton retour) -->
 <script>if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())document.write('<script src="capacitor.js"><\/script>')</script>
-<meta name="theme-color" content="#0A0A0A">
+<meta name="theme-color" content="#070B14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Fléchette">
+<meta name="apple-mobile-web-app-title" content="Pointe IA">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,9 +23,10 @@
 /* Direction : habillage télé des grands tournois (barres inclinées, chiffres italiques condensés)
    aux seules couleurs de la cible : noir des secteurs, blanc du sisal, rouge des triples, vert des doubles. */
 :root{
-  --night:#0A0A0A; --deck:#161514; --deck2:#1F1D1B; --line:#34312C;
-  --cream:#F4EEE1; --muted:#A8A296; --faint:#716B62;
-  --accent:#E3242B; --accent2:#B5161C; --red:#E3242B; --green:#1E9E55; --green2:#5BD892;
+  /* Pointe IA : bleu nuit et cyan (Fléchette, l'appli d'origine, est rouge et noire) */
+  --night:#070B14; --deck:#0E1526; --deck2:#142039; --line:#233254;
+  --cream:#E6EEFF; --muted:#8EA2C8; --faint:#5E6F93;
+  --accent:#22D3EE; --accent2:#0891B2; --onacc:#04202A; --red:#F0384A; --green:#1E9E55; --green2:#5BD892;
   --display:"Barlow Condensed","Arial Narrow","Roboto Condensed",Impact,sans-serif;
   --body:"Barlow","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --slant:10px;
@@ -43,7 +44,7 @@ body{overscroll-behavior:none}
 /* commandes : pas de sélection du texte ni de menu au doigt appuyé */
 button,.chip,.seg,.pcard,.dart{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 body{background:
-    radial-gradient(90% 55% at 50% -8%,rgba(227,36,43,.10) 0%,transparent 60%),
+    radial-gradient(90% 55% at 50% -8%,rgba(34,211,238,.10) 0%,transparent 60%),
     radial-gradient(70% 50% at 100% 100%,rgba(30,158,85,.07) 0%,transparent 70%),
     var(--night);
   background-attachment:fixed;
@@ -68,7 +69,7 @@ h1 .mark{position:relative;width:.95em;height:.95em;border-radius:50%;flex:none;
     radial-gradient(circle,var(--red) 0 9%,var(--green) 10% 19%,transparent 20% 56%,rgba(0,0,0,0) 56%),
     radial-gradient(circle,transparent 0 55%,var(--red) 56% 63%,transparent 64% 88%,var(--green) 89% 96%,#0d0d0d 97%),
     repeating-conic-gradient(from -9deg,#141414 0 18deg,var(--cream) 18deg 36deg);
-  box-shadow:0 0 0 2px #0d0d0d,0 4px 14px -4px rgba(227,36,43,.45)}
+  box-shadow:0 0 0 2px #0d0d0d,0 4px 14px -4px rgba(34,211,238,.45)}
 .iconbtn{display:inline-flex;align-items:center;gap:7px;background:var(--deck);border:1px solid var(--line);border-radius:999px;padding:8px 15px 8px 11px;font-weight:600;font-size:.95rem}
 .iconbtn svg{width:18px;height:18px;color:var(--accent)}
 .topbtns{display:flex;gap:6px;align-items:center}
@@ -76,7 +77,7 @@ h1 .mark{position:relative;width:.95em;height:.95em;border-radius:50%;flex:none;
 .langs{display:flex;flex-direction:column;gap:8px}
 .langs button{display:flex;align-items:center;gap:14px;border:1px solid var(--line);background:var(--night);border-radius:var(--r-md);padding:14px 16px;font-weight:600;font-size:1.05rem;text-align:left}
 .langs button .fl{display:inline-flex}.langs button .fl svg{width:34px;height:23px;border-radius:3px;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
-.langs button[aria-pressed="true"]{border-color:var(--accent);background:rgba(227,36,43,.12)}
+.langs button[aria-pressed="true"]{border-color:var(--accent);background:rgba(34,211,238,.12)}
 /* en-tête étroit : le logo seul, pour laisser la place aux boutons */
 @media (max-width:420px){h1{font-size:1.25rem}.topbtns{gap:5px}.iconbtn.sq{width:36px;height:36px}#openSettings{padding:6px 11px 6px 9px}}
 @media (max-width:370px){h1 .ttl{display:none}}
@@ -102,7 +103,7 @@ h1 .mark{position:relative;width:.95em;height:.95em;border-radius:50%;flex:none;
 .farCo:empty{display:none}
 .farCo .t{font-family:var(--display);font-style:italic;font-weight:800;font-size:clamp(1.6rem,8vw,2.8rem);line-height:1;padding:6px 18px;background:rgba(255,255,255,.08);color:var(--cream);clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
 .farCo .t.d{background:rgba(30,158,85,.22);color:var(--green2)}
-.farCo .t.tr{background:rgba(227,36,43,.22);color:#FF7A8A}
+.farCo .t.tr{background:rgba(34,211,238,.22);color:#FF7A8A}
 .farDarts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .farDarts .dart{min-height:clamp(70px,14vh,130px)}
 .farDarts .dart .l{font-size:clamp(2rem,10vw,3.6rem)}
@@ -161,12 +162,12 @@ body.farOn:not(.camlive) .stage{display:none}
 .cam canvas{display:block;width:100%;height:100%;touch-action:none}
 .cam video{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
 .camoff{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:14px;
-  background:radial-gradient(circle at 50% 38%,rgba(227,36,43,.13) 0%,transparent 45%),radial-gradient(circle at 50% 42%,#1D1B19 0%,#050505 72%)}
+  background:radial-gradient(circle at 50% 38%,rgba(34,211,238,.13) 0%,transparent 45%),radial-gradient(circle at 50% 42%,#1D1B19 0%,#050505 72%)}
 .camoff .target{flex:none;width:clamp(44px,12svh,80px);height:clamp(44px,12svh,80px);border-radius:50%;margin-bottom:2px;
   background:
     radial-gradient(circle,var(--red) 0 7%,var(--green) 8% 15%,transparent 16% 46%,var(--red) 47% 53%,transparent 54% 76%,var(--green) 77% 83%,#0d0d0d 84%),
     repeating-conic-gradient(from -9deg,#141414 0 18deg,var(--cream) 18deg 36deg);
-  box-shadow:0 0 0 3px #0d0d0d,0 0 0 4px rgba(227,36,43,.35),0 14px 40px -8px rgba(227,36,43,.35)}
+  box-shadow:0 0 0 3px #0d0d0d,0 0 0 4px rgba(34,211,238,.35),0 14px 40px -8px rgba(34,211,238,.35)}
 @media (prefers-reduced-motion:no-preference){.camoff .target{animation:spin 40s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}}
 .camoff p{margin:0;max-width:34ch;color:var(--muted);font-size:.86rem}
 .camoff .btn{padding:11px 8px}
@@ -222,13 +223,13 @@ body.farOn:not(.camlive) .stage{display:none}
 .who{display:inline-block;margin-left:-14px;background:var(--accent);color:#fff;font-family:var(--display);font-style:italic;font-weight:800;font-size:1.05rem;letter-spacing:.02em;
   padding:5px 24px 5px 14px;clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%);max-width:calc(100% + 14px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .big{font-family:var(--display);font-style:italic;font-weight:800;font-size:clamp(5rem,25vw,7.4rem);line-height:.82;letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin-top:8px;
-  color:var(--cream);text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 40px rgba(227,36,43,.12)}
+  color:var(--cream);text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 40px rgba(34,211,238,.12)}
 .big.bust{color:var(--red);text-shadow:0 0 30px rgba(229,38,62,.35)}
 .sub{color:var(--muted);font-size:.86rem;text-align:right;line-height:1.35;padding-top:12px}
 .sub .ts{font-family:var(--display);font-style:italic;font-weight:800;font-size:2.1rem;line-height:1;color:var(--accent);display:block;font-variant-numeric:tabular-nums}
 .co{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:0}
 .co:empty{display:none}
-.outbtn{margin-top:4px;background:rgba(227,36,43,.12);border:1px solid rgba(227,36,43,.45);color:var(--accent);border-radius:999px;padding:6px 12px;font-weight:600;font-size:.85rem;white-space:nowrap}
+.outbtn{margin-top:4px;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.45);color:var(--accent);border-radius:999px;padding:6px 12px;font-weight:600;font-size:.85rem;white-space:nowrap}
 .co .k{font-size:.8rem;color:var(--muted);font-weight:500}
 .co .t{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.15rem;line-height:1;padding:4px 12px 4px 10px;background:rgba(255,255,255,.08);color:var(--cream);
   clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)}
@@ -243,7 +244,7 @@ body.farOn:not(.camlive) .stage{display:none}
 .cboard .t{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.25rem;line-height:1;text-align:center;color:var(--cream);
   background:rgba(255,255,255,.05);padding:4px 0;clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%)}
 .cboard .c{height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:rgba(255,255,255,.025)}
-.cboard .c.me{background:rgba(227,36,43,.09)}
+.cboard .c.me{background:rgba(34,211,238,.09)}
 .cboard .c svg{width:22px;height:22px;fill:none;stroke:var(--cream);stroke-width:2.4;stroke-linecap:round}
 .cboard .c .nw{stroke:var(--accent)}
 .cboard .dead{opacity:.28}
@@ -259,7 +260,7 @@ body.farOn:not(.camlive) .stage{display:none}
   mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 17.2V21h3.8L17.9 9.9l-3.8-3.8L3 17.2zM20.7 7a1 1 0 000-1.4l-2.3-2.3a1 1 0 00-1.4 0l-1.8 1.8 3.8 3.8L20.7 7z'/%3E%3C/svg%3E") center/contain no-repeat}
 .dart.doubt .l::after{content:"?";font-size:.6em;margin-left:2px;color:var(--accent);vertical-align:super}
 .dart .alt{position:relative;z-index:1;margin-top:3px;font-family:var(--body);font-style:normal;font-weight:700;font-size:.74rem;line-height:1;
-  padding:4px 9px;border-radius:999px;background:rgba(227,36,43,.16);color:var(--cream);border:1px solid rgba(227,36,43,.55);white-space:nowrap}
+  padding:4px 9px;border-radius:999px;background:rgba(34,211,238,.16);color:var(--cream);border:1px solid rgba(34,211,238,.55);white-space:nowrap}
 .dart .alt:active{background:var(--accent)}
 .dart.doubt .tag,.dart.doubt .v{display:none}
 .dart.m3::after{background:var(--red)} .dart.m2::after{background:var(--green)} .dart.m0::after{background:var(--faint)}
@@ -269,7 +270,7 @@ body.farOn:not(.camlive) .stage{display:none}
 .dart .v{font-size:.78rem;color:var(--muted)}
 .dart .tag{font-size:.66rem;color:var(--faint)}
 .dart:not(.filled) .v{font-family:var(--display);font-style:italic;font-weight:700;font-size:1.5rem;color:var(--faint);line-height:1}
-.dart.next{background:rgba(227,36,43,.06)}.dart.next .v{color:var(--accent);opacity:.75}
+.dart.next{background:rgba(34,211,238,.06)}.dart.next .v{color:var(--accent);opacity:.75}
 .msg{min-height:1.4em;font-weight:600;text-align:center;font-size:.95rem;color:var(--cream)}
 .msg.red{color:var(--red)} .msg.green{color:#5BD892}
 .actions{display:grid;grid-template-columns:1fr 1fr 1.35fr;gap:8px}
@@ -315,7 +316,7 @@ body.farOn:not(.camlive) .stage{display:none}
 .chip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);background:var(--night);border-radius:999px;padding:0 0 0 13px;font-weight:600;font-size:.92rem}
 .chip .nm{border:none;background:none;padding:8px 4px;font-weight:600}
 .chip .x{border:none;background:none;color:var(--faint);padding:8px 11px 8px 6px;font-size:1rem;line-height:1}
-.chip.in{border-color:rgba(227,36,43,.5);background:rgba(227,36,43,.1);color:var(--accent)}
+.chip.in{border-color:rgba(34,211,238,.5);background:rgba(34,211,238,.1);color:var(--accent)}
 .chips:empty::before{content:attr(data-empty);color:var(--faint);font-size:.85rem}
 .prow .create{background:var(--accent);border-color:transparent;color:#fff;font-weight:700;padding:0 18px}
 .prow .ord{width:40px;padding:0;font-size:1rem}
@@ -339,12 +340,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .keys2 button{border:1px solid var(--line);background:var(--night);border-radius:var(--r-sm);padding:12px 0;font-weight:600}
 .keys2 .del{color:var(--red)}
 .win{text-align:center;align-items:stretch}
-.win .big{font-size:3.8rem;color:var(--accent);text-shadow:0 0 40px rgba(227,36,43,.3)}
+.win .big{font-size:3.8rem;color:var(--accent);text-shadow:0 0 40px rgba(34,211,238,.3)}
 .win p{color:var(--muted)}
 .wstats{display:flex;flex-direction:column;gap:4px;text-align:left}
 .wrow{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:var(--r-sm);font-size:.92rem;color:var(--muted)}
 .wrow span:first-child{color:var(--cream);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wrow.me{background:rgba(227,36,43,.1)}.wrow.me span:first-child{color:var(--accent)}
+.wrow.me{background:rgba(34,211,238,.1)}.wrow.me span:first-child{color:var(--accent)}
 @media (prefers-reduced-motion:no-preference){
   .flash{animation:fl .7s ease-out}
   @keyframes fl{from{background:var(--accent)}to{background:#1F1D1B}}
@@ -446,12 +447,22 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   .co .t{font-size:1rem}
   .cboard .c{height:24px} .cboard .c svg{width:18px;height:18px} .cboard .t{font-size:1.05rem;padding:2px 0}
 }
+/* ---------- Pointe IA ---------- */
+h1 .mark{background:
+    linear-gradient(135deg,transparent 46%,var(--cream) 46% 54%,transparent 54%),
+    radial-gradient(circle,var(--accent) 0 14%,transparent 15% 30%,var(--accent) 31% 41%,transparent 42% 58%,#3B82F6 59% 70%,transparent 71%),
+    #0B1A33!important;box-shadow:0 0 0 2px #0B1A33,0 0 14px -2px var(--accent)!important}
+.iab{font-style:normal;font-size:.55em;margin-left:.3em;padding:.12em .38em;border-radius:6px;background:var(--accent);color:var(--onacc);vertical-align:.45em;letter-spacing:.04em}
+.btn.primary,.who,.prow .create,#modeSeg button[aria-pressed="true"],.toast .btn.primary,.iconbtn[aria-pressed="true"],.iconbtn[aria-pressed="true"] svg,.dart .alt:active{color:var(--onacc)!important}
+.btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent2))}
+.camoff .target{filter:hue-rotate(185deg) saturate(1.2)}
+.nninfo{color:var(--accent)}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <h1><span class="mark" aria-hidden="true"></span><span class="ttl">Fléchette</span></h1>
+    <h1><span class="mark" aria-hidden="true"></span><span class="ttl">Pointe<b class="iab">IA</b></span></h1>
     <div class="topbtns">
     <button class="iconbtn sq flag" id="langBtn" aria-label="Langue : Français"><svg viewBox="0 0 3 2" aria-hidden="true"><rect width="1" height="2" fill="#0055A4"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg></button>
     <button class="iconbtn sq" id="farBtn" aria-label="Grand écran, lisible de loin" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
@@ -595,6 +606,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       <summary>Détection et diagnostic</summary>
       <p class="lab small" id="camRes">Caméra : pas encore activée</p>
       <p class="lab small" id="viewInfo"></p>
+      <p class="lab small nninfo" id="nnInfo">Réseau de neurones : chargement…</p>
       <div class="field"><label for="sens">Sensibilité <span id="sensVal"></span></label><input type="range" id="sens" min="1" max="10" step="1">
         <span class="lab small">Plus haut : les fléchettes fines ou lointaines sont mieux vues, mais une ombre peut compter. Plus bas : l'inverse.</span></div>
       <div class="field"><span class="lab">À chaque correction d'une fléchette mal comptée, une image est gardée. Envoie-les pour faire progresser la détection.</span>
@@ -602,7 +614,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       <div class="field"><span class="lab">Les dernières fléchettes détectées sont gardées en image (avant, après, pointe trouvée).</span>
         <button class="btn" id="diagShare">Envoyer le diagnostic (0)</button></div>
     </details>
-    <div class="upd"><span class="ver" id="verTxt">Fléchette v26</span><button class="btn" id="updBtn">Rechercher une mise à jour</button></div>
+    <div class="upd"><span class="ver" id="verTxt">Pointe IA</span><button class="btn" id="updBtn">Rechercher une mise à jour</button></div>
     <div class="row"><button class="btn" id="setClose">Fermer</button><button class="btn primary" id="newGame">Nouvelle partie</button></div>
   </div>
 </div>
@@ -646,7 +658,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v30";
+const VER="v1";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -738,6 +750,7 @@ const I18N={
 "Effacer tout l'historique des parties et les statistiques ?":["Delete the whole game history and statistics?","¿Borrar todo el historial de partidas y las estadísticas?"],
 "Image floue : essuie l'objectif, ou touche l'image pour faire la mise au point":["Blurry image: wipe the lens, or tap the image to focus","Imagen borrosa: limpia el objetivo o toca la imagen para enfocar"],
 "Image sombre : allume la lumière près de la cible":["Dark image: turn on a light near the board","Imagen oscura: enciende una luz cerca de la diana"],
+"Réseau de neurones : actif":["Neural network: on","Red neuronal: activa"],"Réseau de neurones : chargement…":["Neural network: loading…","Red neuronal: cargando…"],"Réseau de neurones : désactivé":["Neural network: off","Red neuronal: desactivada"],"Réseau de neurones : indisponible, méthode classique utilisée":["Neural network unavailable, classic method used","Red neuronal no disponible, se usa el método clásico"],
 "Joueur 1":["Player 1","Jugador 1"],"Joueur 2":["Player 2","Jugador 2"],"Joueur":["Player","Jugador"]};
 // phrases avec un nom ou un nombre : [modèle, anglais, espagnol] ($1, $2… = parties variables, elles-mêmes traduites si besoin)
 const I18P=[
@@ -775,7 +788,7 @@ const I18P=[
 [/^Moyenne par partie, de ([\d.]+) à ([\d.]+)$/,"Average per game, from $1 to $2","Media por partida, de $1 a $2"],
 [/^(\d\d\/\d\d) · (.+) · moyenne ([\d.]+)$/,"$1 · $2 · average $3","$1 · $2 · media $3"],
 [/^(.+) \(non finie\)( · [\d.]+)?$/,"$1 (unfinished)$2","$1 (sin terminar)$2"],
-[/^(.+) : (\d) sur 3$/,"$1: $2 of 3","$1: $2 de 3"],[/^Joueur (\d+)$/,"Player $1","Jugador $1"],
+[/^(.+) : (\d) sur 3$/,"$1: $2 of 3","$1: $2 de 3"],[/^Joueur (\d+)$/,"Player $1","Jugador $1"],[/^Réseau de neurones : actif \((\d+) ms par fléchette\)$/,"Neural network: on ($1 ms per dart)","Red neuronal: activa ($1 ms por dardo)"],
 [/^Netteté bonne \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness good ($1) · board $2 px · light $3","Nitidez buena ($1) · diana $2 px · luz $3"],
 [/^Netteté moyenne \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness medium ($1) · board $2 px · light $3","Nitidez media ($1) · diana $2 px · luz $3"],
 [/^Netteté faible \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness low ($1) · board $2 px · light $3","Nitidez baja ($1) · diana $2 px · luz $3"]];
@@ -1018,8 +1031,8 @@ function progChart(pts){ // une seule série : pas de légende, le titre la nomm
   for(const v of [lo,hi]){el("line",{x1:pl,x2:W-pr,y1:Y(v),y2:Y(v),stroke:"#34312C","stroke-width":1});
     const t=el("text",{x:pl-6,y:Y(v)+4,"text-anchor":"end","font-size":10,fill:"#A8A296"});t.textContent=v}
   const cross=el("line",{x1:0,x2:0,y1:pt,y2:Hc-pb,stroke:"#A8A296","stroke-width":1,opacity:0});
-  el("polyline",{points:pts.map((q,i)=>X(i)+","+Y(q.v)).join(" "),fill:"none",stroke:"#E3242B","stroke-width":2,"stroke-linejoin":"round","stroke-linecap":"round"});
-  const last=pts.length-1,dot=el("circle",{cx:X(last),cy:Y(pts[last].v),r:4.5,fill:"#E3242B",stroke:"#0A0A0A","stroke-width":2});
+  el("polyline",{points:pts.map((q,i)=>X(i)+","+Y(q.v)).join(" "),fill:"none",stroke:"#22D3EE","stroke-width":2,"stroke-linejoin":"round","stroke-linecap":"round"});
+  const last=pts.length-1,dot=el("circle",{cx:X(last),cy:Y(pts[last].v),r:4.5,fill:"#22D3EE",stroke:"#0A0A0A","stroke-width":2});
   const pv=document.createElement("div");pv.className="pv";
   const show=i=>{const q=pts[i];dot.setAttribute("cx",X(i));dot.setAttribute("cy",Y(q.v));cross.setAttribute("x1",X(i));cross.setAttribute("x2",X(i));cross.setAttribute("opacity",i===last?0:.6);
     pv.textContent=fmtDate(q.r.date)+" · "+modeTxt(q.r.mode)+" · moyenne "+q.v.toFixed(1)};
@@ -1800,7 +1813,7 @@ function draw(){
     }
     if(!calibrating&&game){
       game.turn.forEach(d=>{if(!d.pt)return;const[x,y]=c2f(d.pt[0],d.pt[1]);
-        vctx.beginPath();vctx.arc(x,y,W/70,0,7);vctx.lineWidth=3;vctx.strokeStyle="#E3242B";vctx.stroke();
+        vctx.beginPath();vctx.arc(x,y,W/70,0,7);vctx.lineWidth=3;vctx.strokeStyle="#22D3EE";vctx.stroke();
         vctx.fillStyle="#fff";vctx.font="700 "+Math.round(W/34)+"px Barlow,sans-serif";vctx.textAlign="left";vctx.textBaseline="middle";vctx.fillText(lab(d),x+W/50,y);
       });
     }
@@ -1911,18 +1924,20 @@ $("autoBtn").onclick=()=>{if(vw)autoCal.start()};
 /* ---------- réseau de neurones « pointe de fléchette » (expérimental, branche ia) ---------- */
 // Activé par ?nn dans l'adresse. Le réseau reçoit l'image avant et l'image après autour de la nouvelle
 // fléchette et renvoie une carte dont le maximum est la pointe.
-const NN={sess:null,on:/[?&]nn\b/.test(location.search),minConf:+((location.search.match(/[?&]nnconf=([\d.]+)/)||[])[1]||0),agree:+((location.search.match(/[?&]nnagree=([\d.]+)/)||[])[1]||8),S:192,HM:48,
+const NN={sess:null,on:!/[?&]nonn\b/.test(location.search),ms:0,minConf:+((location.search.match(/[?&]nnconf=([\d.]+)/)||[])[1]||0),agree:+((location.search.match(/[?&]nnagree=([\d.]+)/)||[])[1]||0),S:192,HM:48,
   ready(){return!!this.sess},
+  info(){const e=document.getElementById("nnInfo");if(e)e.textContent=this.sess?"Réseau de neurones : actif"+(this.ms?" ("+this.ms+" ms par fléchette)":""):this.err?"Réseau de neurones : indisponible, méthode classique utilisée":this.on?"Réseau de neurones : chargement…":"Réseau de neurones : désactivé";},
   async load(){if(!this.on||this.sess||this.loading)return;this.loading=true;
-    try{if(!window.ort)await new Promise((ok,ko)=>{const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js";sc.onload=ok;sc.onerror=ko;document.head.append(sc)});
-      ort.env.wasm.numThreads=1;this.sess=await ort.InferenceSession.create("ia/modele/tipnet.onnx",{executionProviders:["wasm"]})}catch(e){console.warn("réseau indisponible",e)}},
+    const add=src=>new Promise((ok,ko)=>{const sc=document.createElement("script");sc.src=src;sc.onload=ok;sc.onerror=ko;document.head.append(sc)});
+    try{let local=true;if(!window.ort){try{await add("ort/ort.wasm.min.js")}catch(e){local=false;await add("https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.wasm.min.js")}}
+      ort.env.wasm.numThreads=1;if(local)ort.env.wasm.wasmPaths=new URL("ort/",location.href).href;this.sess=await ort.InferenceSession.create("ia/modele/tipnet.onnx",{executionProviders:["wasm"]})}catch(e){this.err=true;console.warn("réseau indisponible",e)}},
   async tip(a,b){const S=this.S,HM=this.HM,da=a.getContext("2d").getImageData(0,0,S,S).data,db=b.getContext("2d").getImageData(0,0,S,S).data,inp=new Float32Array(6*S*S);
     for(let i=0;i<S*S;i++)for(let k=0;k<3;k++){inp[k*S*S+i]=da[i*4+k]/255;inp[(3+k)*S*S+i]=db[i*4+k]/255}
-    const out=await this.sess.run({paire:new ort.Tensor("float32",inp,[1,6,S,S])}),h=out.carte.data;let mx=-1e9;for(const v of h)if(v>mx)mx=v;
+    const t0=performance.now(),out=await this.sess.run({paire:new ort.Tensor("float32",inp,[1,6,S,S])}),h=out.carte.data;this.ms=Math.round(performance.now()-t0);this.info();let mx=-1e9;for(const v of h)if(v>mx)mx=v;
     let sw=0,sx=0,sy=0;for(let y=0;y<HM;y++)for(let x=0;x<HM;x++){const w=Math.exp(h[y*HM+x]-mx);sw+=w;sx+=w*(x+.5);sy+=w*(y+.5)}
     return{x:sx/sw*S/HM,y:sy/sw*S/HM,conf:1/sw}} // conf = poids du maximum (1 = carte très piquée)
 };
-NN.load();
+NN.load().then(()=>NN.info());
 /* ---------- detector (with hand-held stabilisation) ---------- */
 const det={
   enabled:true,debug:false,pendingRemoval:false,PW:0,PH:0,bx:0,by:0,bw:1,bh:1,ctx:null,mask:null,maskN:0,
@@ -2330,7 +2345,8 @@ const det={
     const F=this.curF,Rf=this.refF;if(!F||!Rf||!F.ok||!Rf.ok||F.w!==Rf.w||!pose())return null;
     const C=this.p2b(q.tx,q.ty);if(!C)return null;const tn=Math.hypot(...TAIL),L=this.dartLen||145;
     const a=this.v2p(proj3(C[0],C[1],0)),t=this.v2p(proj3(C[0]+TAIL[0]*L/tn,C[1]+TAIL[1]*L/tn,TAIL[2]*L/tn));if(!a||!t)return null;
-    const dl=Math.hypot(t[0]-a[0],t[1]-a[1]);if(dl<6)return null;
+    // fléchette vue presque dans l'axe (téléphone face à la cible) : elle paraît courte ; la zone découpée garde une taille minimale (~110 mm)
+    const dl=Math.max(Math.hypot(t[0]-a[0],t[1]-a[1]),70*this.mm);
     const sP=F.w/this.PW,Sp=dl*1.55,cx=q.tx+(t[0]-a[0])*.33,cy=q.ty+(t[1]-a[1])*.33,x0=cx-Sp/2,y0=cy-Sp/2;
     const mk=src=>{const c=document.createElement("canvas");c.width=c.height=192;c.getContext("2d").drawImage(src.c,(x0+.5)*sP,(y0+.5)*sP,Sp*sP,Sp*sP,0,0,192,192);return c};
     return{a:mk(Rf),b:mk(F),x0,y0,k:Sp/192}},
@@ -2642,8 +2658,8 @@ setLang(LANG);
 const UPD={
   num:v=>{const m=/v(\d+)/.exec(v||"");return m?+m[1]:0},
   async fetchLatest(){
-    const srcs=["https://api.github.com/repos/ncattin/flechette/contents/index.html?ref=main",
-      "https://raw.githubusercontent.com/ncattin/flechette/main/index.html?t="+Date.now()];
+    const srcs=["https://api.github.com/repos/ncattin/flechette/contents/index.html?ref=ia",
+      "https://raw.githubusercontent.com/ncattin/flechette/ia/index.html?t="+Date.now()];
     for(const u of srcs){try{const r=await fetch(u,{cache:"no-store",headers:u.includes("api.github")?{Accept:"application/vnd.github.raw"}:{}});
       if(!r.ok)continue;const html=await r.text(),m=/const VER="(v\d+)"/.exec(html);
       if(html.length>50000&&/<\/html>\s*$/.test(html))return{ver:m?m[1]:"v0",html}}catch(e){}} // sans numéro : ancienne version
@@ -2663,6 +2679,10 @@ const UPD={
       const capSrc=(document.querySelector('script[src*="capacitor"]')||{}).src||"capacitor.js";
       const files=[["index.html",L.html],["capacitor.js",await own(capSrc)],["manifest.webmanifest",await own("manifest.webmanifest").catch(()=>"{}")]];
       for(const[n,t]of files)await P.Filesystem.writeFile({path:dir+"/"+n,data:t,directory:"DATA",encoding:"utf8",recursive:true});
+      const b64=async u=>{const r=await fetch(u,{cache:"no-store"});if(!r.ok)throw new Error(u);const bl=await r.blob();return await new Promise((ok,ko)=>{const fr=new FileReader();fr.onload=()=>ok(String(fr.result).split(",")[1]);fr.onerror=ko;fr.readAsDataURL(bl)})};
+      let model;try{model=await b64("https://raw.githubusercontent.com/ncattin/flechette/ia/ia/modele/tipnet.onnx?t="+Date.now())}catch(e){model=await b64("ia/modele/tipnet.onnx")}
+      const bins=[["ia/modele/tipnet.onnx",model],["ort/ort.wasm.min.js",await b64("ort/ort.wasm.min.js")],["ort/ort-wasm-simd-threaded.mjs",await b64("ort/ort-wasm-simd-threaded.mjs")],["ort/ort-wasm-simd-threaded.wasm",await b64("ort/ort-wasm-simd-threaded.wasm")]];
+      for(const[n,d]of bins)await P.Filesystem.writeFile({path:dir+"/"+n,data:d,directory:"DATA",recursive:true});
       const u=await P.Filesystem.getUri({path:dir,directory:"DATA"}),path=decodeURIComponent(String(u.uri).replace(/^file:\/\//,""));
       try{localStorage.setItem("fl_maj",L.ver)}catch(e){}
       await P.WebView.setServerBasePath({path}); // l'appli redémarre sur la nouvelle version
@@ -2677,7 +2697,7 @@ function toast(t,act,fn){const el=$("toast");$("toastTxt").textContent=t;const b
   el.hidden=false;clearTimeout(toastT);if(!act)toastT=setTimeout(()=>{el.hidden=true},4500)}
 $("toastX").onclick=()=>{$("toast").hidden=true};
 $("updBtn").onclick=()=>UPD.check(true);
-$("verTxt").textContent="Fléchette "+VER;
+$("verTxt").textContent="Pointe IA "+VER;
 UPD.afterStart();
 if(NATIVE)setTimeout(()=>UPD.check(false),4000); // vérification discrète au démarrage
 
