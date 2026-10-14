@@ -72,6 +72,14 @@ h1 .mark{position:relative;width:.95em;height:.95em;border-radius:50%;flex:none;
 .iconbtn{display:inline-flex;align-items:center;gap:7px;background:var(--deck);border:1px solid var(--line);border-radius:999px;padding:8px 15px 8px 11px;font-weight:600;font-size:.95rem}
 .iconbtn svg{width:18px;height:18px;color:var(--accent)}
 .topbtns{display:flex;gap:6px;align-items:center}
+.iconbtn.flag{padding:0}.iconbtn.flag svg{width:22px;height:15px;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+.langs{display:flex;flex-direction:column;gap:8px}
+.langs button{display:flex;align-items:center;gap:14px;border:1px solid var(--line);background:var(--night);border-radius:var(--r-md);padding:14px 16px;font-weight:600;font-size:1.05rem;text-align:left}
+.langs button .fl{display:inline-flex}.langs button .fl svg{width:34px;height:23px;border-radius:3px;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+.langs button[aria-pressed="true"]{border-color:var(--accent);background:rgba(227,36,43,.12)}
+/* en-tête étroit : le logo seul, pour laisser la place aux boutons */
+@media (max-width:420px){h1{font-size:1.25rem}.topbtns{gap:5px}.iconbtn.sq{width:36px;height:36px}#openSettings{padding:6px 11px 6px 9px}}
+@media (max-width:370px){h1 .ttl{display:none}}
 .iconbtn.sq{padding:8px;width:38px;height:38px;justify-content:center}
 .iconbtn.sq svg{color:var(--cream)}
 .iconbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
@@ -308,7 +316,7 @@ body.farOn:not(.camlive) .stage{display:none}
 .chip .nm{border:none;background:none;padding:8px 4px;font-weight:600}
 .chip .x{border:none;background:none;color:var(--faint);padding:8px 11px 8px 6px;font-size:1rem;line-height:1}
 .chip.in{border-color:rgba(227,36,43,.5);background:rgba(227,36,43,.1);color:var(--accent)}
-.chips:empty::before{content:"Personne pour l'instant : crée un prénom ci-dessous.";color:var(--faint);font-size:.85rem}
+.chips:empty::before{content:attr(data-empty);color:var(--faint);font-size:.85rem}
 .prow .create{background:var(--accent);border-color:transparent;color:#fff;font-weight:700;padding:0 18px}
 .prow .ord{width:40px;padding:0;font-size:1rem}
 .prow .num{flex:none;width:26px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-style:italic;font-weight:800;color:var(--accent);font-size:1.2rem}
@@ -443,8 +451,9 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <body>
 <div class="app">
   <header class="top">
-    <h1><span class="mark" aria-hidden="true"></span>Fléchette</h1>
+    <h1><span class="mark" aria-hidden="true"></span><span class="ttl">Fléchette</span></h1>
     <div class="topbtns">
+    <button class="iconbtn sq flag" id="langBtn" aria-label="Langue : Français"><svg viewBox="0 0 3 2" aria-hidden="true"><rect width="1" height="2" fill="#0055A4"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg></button>
     <button class="iconbtn sq" id="farBtn" aria-label="Grand écran, lisible de loin" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     <button class="iconbtn sq" id="openStats" aria-label="Statistiques"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></button>
     <button class="iconbtn" id="openSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Partie</button>
@@ -579,12 +588,13 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     </div>
     <div class="toggle" id="cutRow"><label for="cutOn">Cut-throat : tes points vont chez les adversaires, le plus petit score gagne</label><input type="checkbox" id="cutOn"></div>
     <div class="field"><span class="lab">Joueurs, dans l'ordre de passage</span><div id="plist" class="plist"></div></div>
-    <div class="field"><span class="lab">Touche un prénom pour l'ajouter ou le retirer de la partie</span><div class="chips" id="roster"></div>
+    <div class="field"><span class="lab">Touche un prénom pour l'ajouter ou le retirer de la partie</span><div class="chips" id="roster" data-empty="Personne pour l'instant : crée un prénom ci-dessous."></div>
       <div class="prow"><input type="text" id="newName" maxlength="16" placeholder="Nouveau prénom" aria-label="Prénom de la nouvelle personne" autocomplete="off" autocapitalize="words" enterkeyhint="done"><button class="create" id="createP">Ajouter</button></div></div>
     <div class="toggle"><label for="voiceOn">Annonce vocale des scores</label><input type="checkbox" id="voiceOn"></div>
     <details class="more">
       <summary>Détection et diagnostic</summary>
       <p class="lab small" id="camRes">Caméra : pas encore activée</p>
+      <p class="lab small" id="viewInfo"></p>
       <div class="field"><label for="sens">Sensibilité <span id="sensVal"></span></label><input type="range" id="sens" min="1" max="10" step="1">
         <span class="lab small">Plus haut : les fléchettes fines ou lointaines sont mieux vues, mais une ombre peut compter. Plus bas : l'inverse.</span></div>
       <div class="field"><span class="lab">À chaque correction d'une fléchette mal comptée, une image est gardée. Envoie-les pour faire progresser la détection.</span>
@@ -594,6 +604,21 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     </details>
     <div class="upd"><span class="ver" id="verTxt">Fléchette v26</span><button class="btn" id="updBtn">Rechercher une mise à jour</button></div>
     <div class="row"><button class="btn" id="setClose">Fermer</button><button class="btn primary" id="newGame">Nouvelle partie</button></div>
+  </div>
+</div>
+
+<!-- langue -->
+<div class="sheet" id="langSheet" role="dialog" aria-modal="true" aria-labelledby="langTitle">
+  <div class="panel">
+    <h2 id="langTitle">Langue</h2>
+    <p class="lab small">Choisis la langue de l'appli et de la voix.</p>
+    <div class="langs" id="langList">
+      <button data-l="fr"><span class="fl"><svg viewBox="0 0 3 2" aria-hidden="true"><rect width="1" height="2" fill="#0055A4"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg></span>Français</button>
+      <button data-l="en"><span class="fl"><svg viewBox="0 0 60 30" aria-hidden="true"><clipPath id="ukc2"><path d="M0,0v30h60V0z"/></clipPath><g clip-path="url(#ukc2)"><path d="M0,0v30h60V0z" fill="#012169"/><path d="M0,0L60,30M60,0L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0L60,30M60,0L0,30" stroke="#C8102E" stroke-width="2.4"/><path d="M30,0v30M0,15h60" stroke="#fff" stroke-width="10"/><path d="M30,0v30M0,15h60" stroke="#C8102E" stroke-width="6"/></g></svg></span>English</button>
+      <button data-l="es"><span class="fl"><svg viewBox="0 0 3 2" aria-hidden="true"><rect width="3" height="2" fill="#AA151B"/><rect y=".5" width="3" height="1" fill="#F1BF00"/></svg></span>Español</button>
+    </div>
+    <p class="lab small">Elle revient en français à chaque démarrage de l'appli.</p>
+    <button class="btn" id="langClose">Fermer</button>
   </div>
 </div>
 
@@ -621,7 +646,169 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v29";
+const VER="v30";
+/* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
+// Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
+let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
+// texte français exact -> [anglais, espagnol]
+const I18N={
+"Partie":["Game","Partida"],"Statistiques":["Statistics","Estadísticas"],"Langue":["Language","Idioma"],
+"Activer la caméra":["Turn on camera","Activar la cámara"],"Essayer la démo":["Try the demo","Probar la demo"],
+"Pose le téléphone face à la cible : elle est repérée toute seule, puis chaque fléchette est comptée.":["Point the phone at the board: it is found automatically, then every dart is counted.","Coloca el teléfono frente a la diana: se detecta sola y luego cada dardo se cuenta."],
+"Caméra prête":["Camera ready","Cámara lista"],"REC":["REC","REC"],
+"Fais glisser les 4 poignées sur le":["Drag the 4 handles onto the","Arrastra las 4 asas sobre el"],"bord extérieur du double":["outer edge of the double ring","borde exterior del doble"],
+", au milieu des secteurs 20 (haut), 6 (droite), 3 (bas) et 11 (gauche). L’image reste figée pendant le réglage.":[", in the middle of sectors 20 (top), 6 (right), 3 (bottom) and 11 (left). The image stays frozen while you adjust.",", en el centro de los sectores 20 (arriba), 6 (derecha), 3 (abajo) y 11 (izquierda). La imagen queda congelada durante el ajuste."],
+"Annuler":["Undo","Deshacer"],"Valider":["Confirm","Validar"],"Zoom":["Zoom","Zoom"],
+"Détection auto":["Auto detection","Detección auto"],"Retrouver la cible":["Find the board","Buscar la diana"],"Cible vide":["Empty board","Diana vacía"],
+"Ajuster à la main":["Adjust by hand","Ajustar a mano"],"Voir la détection":["Show detection","Ver la detección"],"Quitter la démo":["Exit demo","Salir de la demo"],
+"+ Fléchette":["+ Dart","+ Dardo"],"Tour suivant":["Next turn","Siguiente turno"],
+"Touche une fléchette pour corriger son score, ou un joueur pour modifier son total.":["Tap a dart to fix its score, or a player to edit their total.","Toca un dardo para corregir su puntuación, o un jugador para cambiar su total."],
+"Simple":["Single","Simple"],"Double":["Double","Doble"],"Triple":["Treble","Triple"],"Bull 50":["Bull 50","Diana 50"],"Raté":["Miss","Fallo"],
+"Supprimer":["Delete","Eliminar"],"Fermer":["Close","Cerrar"],"Modifier le total":["Edit total","Modificar total"],"Score":["Score","Puntuación"],"Enregistrer":["Save","Guardar"],
+"Jeu":["Game type","Juego"],"Libre":["Free","Libre"],"Cricket":["Cricket","Cricket"],
+"Sortie (comment on termine la partie)":["Checkout (how the game ends)","Salida (cómo se termina la partida)"],
+"Cut-throat : tes points vont chez les adversaires, le plus petit score gagne":["Cut-throat: your points go to your opponents, the lowest score wins","Cut-throat: tus puntos van a los rivales, gana la puntuación más baja"],
+"Joueurs, dans l'ordre de passage":["Players, in throwing order","Jugadores, en orden de lanzamiento"],
+"Touche un prénom pour l'ajouter ou le retirer de la partie":["Tap a name to add or remove them from the game","Toca un nombre para añadirlo o quitarlo de la partida"],
+"Personne pour l'instant : crée un prénom ci-dessous.":["Nobody yet: create a name below.","Nadie por ahora: crea un nombre abajo."],
+"Ajouter":["Add","Añadir"],"Retirer":["Remove","Quitar"],"Nouveau prénom":["New name","Nuevo nombre"],"Annonce vocale des scores":["Spoken scores","Anuncio de voz de las puntuaciones"],
+"Détection et diagnostic":["Detection and diagnostics","Detección y diagnóstico"],"Sensibilité":["Sensitivity","Sensibilidad"],
+"Plus haut : les fléchettes fines ou lointaines sont mieux vues, mais une ombre peut compter. Plus bas : l'inverse.":["Higher: thin or distant darts are seen better, but a shadow may count. Lower: the opposite.","Más alto: los dardos finos o lejanos se ven mejor, pero una sombra puede contar. Más bajo: lo contrario."],
+"À chaque correction d'une fléchette mal comptée, une image est gardée. Envoie-les pour faire progresser la détection.":["Each time you fix a miscounted dart, an image is kept. Send them to improve detection.","Cada vez que corriges un dardo mal contado, se guarda una imagen. Envíalas para mejorar la detección."],
+"Les dernières fléchettes détectées sont gardées en image (avant, après, pointe trouvée).":["The last detected darts are kept as images (before, after, tip found).","Los últimos dardos detectados se guardan como imágenes (antes, después, punta encontrada)."],
+"Caméra : pas encore activée":["Camera: not turned on yet","Cámara: aún no activada"],"Rechercher une mise à jour":["Check for updates","Buscar actualizaciones"],
+"Nouvelle partie":["New game","Nueva partida"],"Effacer l'historique":["Clear history","Borrar el historial"],"Corriger":["Fix","Corregir"],"Rejouer":["Play again","Jugar otra vez"],
+"Écran normal":["Normal screen","Pantalla normal"],"Grand écran, lisible de loin":["Big screen, readable from afar","Pantalla grande, legible de lejos"],
+"Annuler la dernière action":["Undo last action","Deshacer la última acción"],"Enregistrer la partie en vidéo":["Record the game on video","Grabar la partida en vídeo"],
+"Outils caméra (zoom, détection, cible)":["Camera tools (zoom, detection, board)","Herramientas de cámara (zoom, detección, diana)"],
+"Prénom de la nouvelle personne":["New person's name","Nombre de la nueva persona"],"Vue caméra de la cible":["Camera view of the board","Vista de cámara de la diana"],
+"Caméra":["Camera","Cámara"],"Scores":["Scores","Puntuaciones"],"Finish possible":["Possible checkout","Cierre posible"],"Finish":["Checkout","Cierre"],
+"ce tour":["this turn","este turno"],"points ce tour":["points this turn","puntos este turno"],"pts ce tour":["pts this turn","pts este turno"],
+"Jeu libre":["Free play","Juego libre"],"Cricket cut-throat":["Cut-throat cricket","Cricket cut-throat"],"Bust":["Bust","Bust"],
+"hors cricket":["not a cricket number","fuera del cricket"],"auto":["auto","auto"],"manuel":["manual","manual"],
+"Prêt : active la caméra ou compte à la main":["Ready: turn on the camera or score by hand","Listo: activa la cámara o cuenta a mano"],
+"Vise la cible : elle est repérée toute seule":["Aim at the board: it is found automatically","Apunta a la diana: se detecta sola"],
+"Recherche de la cible… vise-la":["Looking for the board… aim at it","Buscando la diana… apunta hacia ella"],
+"Recherche de la cible… vise-la avec le téléphone":["Looking for the board… aim the phone at it","Buscando la diana… apunta con el teléfono"],
+"Cible presque trouvée… rapproche-toi ou zoome":["Board almost found… move closer","Diana casi encontrada… acércate"],
+"Cible repérée, ne bouge plus…":["Board found, hold still…","Diana encontrada, no te muevas…"],
+"Cible détectée ✓ en attente d'une fléchette":["Board found ✓ waiting for a dart","Diana detectada ✓ esperando un dardo"],
+"Cible trouvée : lance, les points s'ajoutent tout seuls":["Board found: throw, points are added automatically","Diana encontrada: lanza, los puntos se suman solos"],
+"En attente d'une fléchette":["Waiting for a dart","Esperando un dardo"],"Prêt : en attente d'une fléchette":["Ready: waiting for a dart","Listo: esperando un dardo"],
+"Analyse…":["Analysing…","Analizando…"],"Main devant la cible…":["Hand in front of the board…","Mano delante de la diana…"],
+"Main retirée, rien compté":["Hand gone, nothing counted","Mano retirada, no se ha contado nada"],
+"Retrait des fléchettes…":["Removing darts…","Retirando dardos…"],"Retire toutes les fléchettes…":["Remove all the darts…","Retira todos los dardos…"],
+"Retire les fléchettes pour continuer":["Remove the darts to continue","Retira los dardos para continuar"],
+"Retire les fléchettes pour passer au joueur suivant":["Remove the darts to go to the next player","Retira los dardos para pasar al siguiente jugador"],
+"Fléchettes retirées, joueur suivant":["Darts removed, next player","Dardos retirados, siguiente jugador"],
+"Cible vide, à toi de jouer":["Board empty, your turn","Diana vacía, te toca"],"Fléchette tombée : ratée":["Dart fell out: miss","Dardo caído: fallo"],
+"Même fléchette, ignorée":["Same dart, ignored","Mismo dardo, ignorado"],"Changement de lumière ignoré":["Lighting change ignored","Cambio de luz ignorado"],
+"Changement de l'image ignoré":["Image change ignored","Cambio de imagen ignorado"],"Cible non visible : rien n'est compté":["Board not visible: nothing is counted","Diana no visible: no se cuenta nada"],
+"Cible perdue : je la recherche…":["Board lost: searching…","Diana perdida: buscándola…"],"Cible perdue : nouvelle recherche…":["Board lost: searching again…","Diana perdida: nueva búsqueda…"],
+"Cible perdue : recadre la cible dans l'image":["Board lost: frame it in the image","Diana perdida: encuádrala en la imagen"],"Cible retrouvée":["Board found again","Diana recuperada"],
+"Téléphone en mouvement : rien n'est compté":["Phone moving: nothing is counted","Teléfono en movimiento: no se cuenta nada"],
+"Téléphone déplacé : je recadre la cible…":["Phone moved: reframing the board…","Teléfono desplazado: reencuadrando la diana…"],
+"Le téléphone bouge beaucoup : je recadre la cible…":["The phone moves a lot: reframing the board…","El teléfono se mueve mucho: reencuadrando la diana…"],
+"Je recadre la cible…":["Reframing the board…","Reencuadrando la diana…"],"Reprise : je vérifie la cible…":["Resuming: checking the board…","Reanudando: compruebo la diana…"],
+"Calibrage du bruit de l'image…":["Measuring image noise…","Midiendo el ruido de la imagen…"],"Calibration : image figée":["Calibration: image frozen","Calibración: imagen congelada"],
+"Poignées mal placées, recommence":["Handles badly placed, try again","Asas mal colocadas, vuelve a empezar"],"Cible calibrée, en attente d'une fléchette":["Board calibrated, waiting for a dart","Diana calibrada, esperando un dardo"],
+"Référence enregistrée : cible vide":["Reference saved: empty board","Referencia guardada: diana vacía"],"Détection auto activée":["Auto detection on","Detección auto activada"],"Détection auto en pause":["Auto detection paused","Detección auto en pausa"],
+"Zoom changé : recherche de la cible…":["Zoom changed: looking for the board…","Zoom cambiado: buscando la diana…"],"Zoome sur la cible puis calibre-la":["Zoom on the board then calibrate it","Haz zoom en la diana y calíbrala"],
+"La cible est petite à l'image : rapproche le téléphone pour plus de précision":["The board is small in the image: move the phone closer for more accuracy","La diana se ve pequeña: acerca el teléfono para más precisión"],
+"Démo : recherche automatique de la cible…":["Demo: finding the board automatically…","Demo: buscando la diana automáticamente…"],
+"Démo lancée : la cible est trouvée toute seule, puis les scores se remplissent":["Demo started: the board is found automatically, then scores fill in","Demo iniciada: la diana se detecta sola y luego se rellenan las puntuaciones"],
+"La démo n'a pas pu démarrer sur ce navigateur.":["The demo could not start in this browser.","La demo no ha podido iniciarse en este navegador."],
+"Ce navigateur ne donne pas accès à la caméra.":["This browser does not give access to the camera.","Este navegador no da acceso a la cámara."],
+"Accès à la caméra refusé. Autorise la caméra pour ce site dans les réglages du navigateur, puis réessaie. Le comptage manuel reste disponible.":["Camera access denied. Allow the camera in the settings, then try again. Manual scoring is still available.","Acceso a la cámara denegado. Permite la cámara en los ajustes y vuelve a intentarlo. El conteo manual sigue disponible."],
+"Réessayer":["Try again","Reintentar"],"Touche « Activer la caméra » pour reprendre":["Tap “Turn on camera” to resume","Toca «Activar la cámara» para continuar"],
+"Action annulée":["Action undone","Acción deshecha"],"Fléchette supprimée":["Dart deleted","Dardo eliminado"],"Total modifié":["Total changed","Total modificado"],
+"Ordre de passage modifié":["Throwing order changed","Orden de lanzamiento cambiado"],"Prénoms modifiés":["Names changed","Nombres cambiados"],
+"Le jeu choisi démarrera avec « Nouvelle partie »":["The chosen game starts with “New game”","El juego elegido empezará con «Nueva partida»"],
+"Grand écran : touche « Écran normal » pour revenir":["Big screen: tap “Normal screen” to go back","Pantalla grande: toca «Pantalla normal» para volver"],
+"Enregistrement en cours : joue normalement, touche REC pour arrêter":["Recording: play normally, tap REC to stop","Grabando: juega normalmente, toca REC para parar"],
+"Enregistrement arrêté après 15 minutes":["Recording stopped after 15 minutes","Grabación detenida tras 15 minutos"],"Enregistrement vidéo impossible sur ce navigateur":["Video recording is not possible in this browser","No se puede grabar vídeo en este navegador"],
+"Impossible de joindre GitHub : vérifie la connexion internet.":["Cannot reach GitHub: check your internet connection.","No se puede conectar con GitHub: comprueba la conexión a internet."],
+"Annonce vocale activée":["Voice on","Voz activada"],"Installer":["Install","Instalar"],"Recharger":["Reload","Recargar"],"Recherche…":["Checking…","Buscando…"],
+"Aucune partie enregistrée pour l'instant. Les statistiques se remplissent à la fin de chaque partie.":["No games recorded yet. Statistics fill in at the end of each game.","Aún no hay partidas guardadas. Las estadísticas se rellenan al final de cada partida."],
+"de moyenne par volée de 3 fléchettes":["average per 3-dart visit","de media por tanda de 3 dardos"],"partie":["game","partida"],"parties":["games","partidas"],"victoire":["win","victoria"],"victoires":["wins","victorias"],
+"meilleure moyenne":["best average","mejor media"],"meilleur tour":["best visit","mejor turno"],"fois 180":["times 180","veces 180"],"tours à 140 et plus":["visits of 140+","turnos de 140 o más"],
+"meilleur finish":["best checkout","mejor cierre"],"réussite aux doubles":["checkout rate","acierto en dobles"],"marques par tour au cricket":["cricket marks per round","marcas por turno en cricket"],
+"Dernières parties":["Recent games","Últimas partidas"],"Choisis la langue de l'appli et de la voix.":["Choose the language of the app and the voice.","Elige el idioma de la app y de la voz."],
+"Elle revient en français à chaque démarrage de l'appli.":["It goes back to French each time the app starts.","Vuelve al francés cada vez que se inicia la app."],
+"Effacer tout l'historique des parties et les statistiques ?":["Delete the whole game history and statistics?","¿Borrar todo el historial de partidas y las estadísticas?"],
+"Image floue : essuie l'objectif, ou touche l'image pour faire la mise au point":["Blurry image: wipe the lens, or tap the image to focus","Imagen borrosa: limpia el objetivo o toca la imagen para enfocar"],
+"Image sombre : allume la lumière près de la cible":["Dark image: turn on a light near the board","Imagen oscura: enciende una luz cerca de la diana"],
+"Joueur 1":["Player 1","Jugador 1"],"Joueur 2":["Player 2","Jugador 2"],"Joueur":["Player","Jugador"]};
+// phrases avec un nom ou un nombre : [modèle, anglais, espagnol] ($1, $2… = parties variables, elles-mêmes traduites si besoin)
+const I18P=[
+[/^À (.+) de jouer$/,"$1 to throw","Turno de $1"],[/^Touché : (.+)$/,"Hit: $1","Acierto: $1"],
+[/^Nouvelle partie : à (.+)$/,"New game: $1 to throw","Nueva partida: empieza $1"],[/^Partie prête : à (.+)$/,"Game ready: $1 to throw","Partida lista: empieza $1"],
+[/^(.+) termine ! Valide avec Tour suivant$/,"$1 checks out! Confirm with Next turn","¡$1 cierra! Confirma con Siguiente turno"],
+[/^Bust ! Le score revient à (\d+)$/,"Bust! The score goes back to $1","¡Bust! La puntuación vuelve a $1"],
+[/^Fléchette corrigée : (.+)$/,"Dart corrected: $1","Dardo corregido: $1"],
+[/^Fléchette (\d+) : (.+), corriger en…$/,"Dart $1: $2, change to…","Dardo $1: $2, cambiar por…"],
+[/^Fléchette (\d+) : (.+), modifier$/,"Dart $1: $2, edit","Dardo $1: $2, modificar"],
+[/^Fléchette (\d+) vide, saisir à la main$/,"Dart $1 empty, enter by hand","Dardo $1 vacío, introducir a mano"],
+[/^Fléchette (\d+) : (.+)$/,"Dart $1: $2","Dardo $1: $2"],[/^Ajouter la fléchette (\d+)$/,"Add dart $1","Añadir dardo $1"],
+[/^Sur un fil : (.+) ou (.+) \? Touche « ou (.+) » si besoin$/,"On a wire: $1 or $2? Tap “or $3” if needed","En un alambre: ¿$1 o $2? Toca «o $3» si hace falta"],
+[/^ou (.+)$/,"or $1","o $1"],[/^Remplacer par (.+)$/,"Replace with $1","Reemplazar por $1"],
+[/^(\d+) · sortie simple$/,"$1 · single out","$1 · salida simple"],[/^(\d+) · sortie double$/,"$1 · double out","$1 · salida doble"],[/^(\d+) · sortie triple$/,"$1 · treble out","$1 · salida triple"],
+[/^Sortie : simple$/,"Checkout: single","Salida: simple"],[/^Sortie : double$/,"Checkout: double","Salida: doble"],[/^Sortie : triple$/,"Checkout: treble","Salida: triple"],
+[/^Total de (.+) \(avant ce tour\)$/,"$1's total (before this turn)","Total de $1 (antes de este turno)"],[/^Total de (.+)$/,"$1's total","Total de $1"],
+[/^(.+)\. Modifier le total$/,"$1. Edit total","$1. Modificar total"],
+[/^moy\. ([\d.]+) · (\d+) fléchettes$/,"avg. $1 · $2 darts","media $1 · $2 dardos"],[/^moy\. ([\d.]+)$/,"avg. $1","media $1"],
+[/^([\d.]+) marques\/tour$/,"$1 marks/round","$1 marcas/turno"],[/^(\d+) marques$/,"$1 marks","$1 marcas"],[/^1 marque$/,"1 mark","1 marca"],
+[/^Fin de partie en cricket \((\d+) points\)\.$/,"Cricket game over ($1 points).","Fin de la partida de cricket ($1 puntos)."],
+[/^Fin de partie en (\d+)\.$/,"Game over ($1).","Fin de la partida ($1)."],[/^(.+) gagne$/,"$1 wins","$1 gana"],
+[/^Envoyer les images d'erreurs \((\d+)\)$/,"Send error images ($1)","Enviar imágenes de errores ($1)"],[/^Envoyer le diagnostic \((\d+)\)$/,"Send diagnostics ($1)","Enviar diagnóstico ($1)"],
+[/^Caméra : (\d+) × (\d+) pixels(.*)$/,"Camera: $1 × $2 pixels$3","Cámara: $1 × $2 píxeles$3"],
+[/^L'appli est à jour \((v\d+)\)\.$/,"The app is up to date ($1).","La app está actualizada ($1)."],
+[/^Nouvelle version (v\d+) disponible\.$/,"New version $1 available.","Nueva versión $1 disponible."],[/^Nouvelle version (v\d+) en ligne\.$/,"New version $1 online.","Nueva versión $1 en línea."],
+[/^Installation de (v\d+)…$/,"Installing $1…","Instalando $1…"],[/^Mise à jour installée : (v\d+)\.$/,"Update installed: $1.","Actualización instalada: $1."],
+[/^La mise à jour a échoué : (.+)$/,"Update failed: $1","La actualización ha fallado: $1"],
+[/^Touche « Nouvelle partie » pour jouer à (\d+)$/,"Tap “New game” to play with $1","Toca «Nueva partida» para jugar con $1"],
+[/^Impossible d'ouvrir la caméra \((.+)\)\. Le comptage manuel reste disponible\.$/,"Cannot open the camera ($1). Manual scoring is still available.","No se puede abrir la cámara ($1). El conteo manual sigue disponible."],
+[/^Vidéo prête \(([\d.]+) Mo\)$/,"Video ready ($1 MB)","Vídeo listo ($1 MB)"],[/^Enregistrement vidéo impossible : (.+)$/,"Video recording failed: $1","No se puede grabar vídeo: $1"],
+[/^Partage impossible : (.+)$/,"Sharing failed: $1","No se puede compartir: $1"],[/^Nom du joueur (\d+)$/,"Player $1 name","Nombre del jugador $1"],
+[/^Monter (.+)$/,"Move $1 up","Subir a $1"],[/^Supprimer (.+) des personnes enregistrées \?$/,"Delete $1 from saved people?","¿Eliminar a $1 de las personas guardadas?"],[/^Supprimer (.+)$/,"Delete $1","Eliminar $1"],
+[/^Moyenne par partie \((\d+) dernières\)$/,"Average per game (last $1)","Media por partida (últimas $1)"],
+[/^Moyenne par partie, de ([\d.]+) à ([\d.]+)$/,"Average per game, from $1 to $2","Media por partida, de $1 a $2"],
+[/^(\d\d\/\d\d) · (.+) · moyenne ([\d.]+)$/,"$1 · $2 · average $3","$1 · $2 · media $3"],
+[/^(.+) \(non finie\)( · [\d.]+)?$/,"$1 (unfinished)$2","$1 (sin terminar)$2"],
+[/^(.+) : (\d) sur 3$/,"$1: $2 of 3","$1: $2 de 3"],[/^Joueur (\d+)$/,"Player $1","Jugador $1"],
+[/^Netteté bonne \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness good ($1) · board $2 px · light $3","Nitidez buena ($1) · diana $2 px · luz $3"],
+[/^Netteté moyenne \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness medium ($1) · board $2 px · light $3","Nitidez media ($1) · diana $2 px · luz $3"],
+[/^Netteté faible \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness low ($1) · board $2 px · light $3","Nitidez baja ($1) · diana $2 px · luz $3"]];
+function tr(s){
+  if(LANG==="fr"||s==null)return s;const t=String(s).trim();if(!t)return s;const k=LANG==="en"?0:1;
+  const lead=String(s).match(/^\s*/)[0],trail=String(s).match(/\s*$/)[0];
+  const e=I18N[t];if(e)return lead+e[k]+trail;
+  for(const p of I18P){const m=p[0].exec(t);if(m)return lead+p[k+1].replace(/\$(\d)/g,(_,i)=>{const g=m[+i]||"",d=I18N[g];return d?d[k]:g})+trail}
+  return s;
+}
+// traduction de l'écran : chaque texte affiché passe par tr(), l'original français est gardé pour revenir en arrière
+const TR_ORIG=new WeakMap(),TR_LAST=new WeakMap(),TR_ATTR=["aria-label","placeholder","title","data-empty"];
+function trText(n){const v=n.nodeValue; // texte changé par l'appli (≠ notre dernière traduction) : c'est le nouvel original français
+  if(!TR_ORIG.has(n)||TR_LAST.get(n)!==v)TR_ORIG.set(n,v);const out=tr(TR_ORIG.get(n));TR_LAST.set(n,out);if(out!==v)n.nodeValue=out}
+function trAttrs(el){for(const a of TR_ATTR){if(!el.hasAttribute(a))continue;const v=el.getAttribute(a);let o=TR_ORIG.get(el);if(!o){o={};TR_ORIG.set(el,o)}
+  const last=(TR_LAST.get(el)||{})[a];if(last!==v)o[a]=v;const out=tr(o[a]);const L=TR_LAST.get(el)||{};L[a]=out;TR_LAST.set(el,L);if(out!==v)el.setAttribute(a,out)}}
+function trTree(root){if(!root)return;if(root.nodeType===3){trText(root);return}if(root.nodeType!==1||root.tagName==="SCRIPT"||root.tagName==="STYLE")return;
+  trAttrs(root);const w=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT|NodeFilter.SHOW_TEXT);let n;
+  while((n=w.nextNode())){if(n.nodeType===3)trText(n);else if(n.tagName!=="SCRIPT"&&n.tagName!=="STYLE")trAttrs(n)}}
+new MutationObserver(ms=>{for(const m of ms){if(m.type==="childList")m.addedNodes.forEach(trTree);else if(m.type==="characterData")trText(m.target);else if(m.type==="attributes"&&TR_ATTR.includes(m.attributeName))trAttrs(m.target)}})
+  .observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:TR_ATTR});
+const FLAGS={fr:'<svg viewBox="0 0 3 2" aria-hidden="true"><rect width="1" height="2" fill="#0055A4"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg>',en:'<svg viewBox="0 0 60 30" aria-hidden="true"><clipPath id="ukc"><path d="M0,0v30h60V0z"/></clipPath><g clip-path="url(#ukc)"><path d="M0,0v30h60V0z" fill="#012169"/><path d="M0,0L60,30M60,0L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0L60,30M60,0L0,30" stroke="#C8102E" stroke-width="2.4"/><path d="M30,0v30M0,15h60" stroke="#fff" stroke-width="10"/><path d="M30,0v30M0,15h60" stroke="#C8102E" stroke-width="6"/></g></svg>',es:'<svg viewBox="0 0 3 2" aria-hidden="true"><rect width="3" height="2" fill="#AA151B"/><rect y=".5" width="3" height="1" fill="#F1BF00"/></svg>'},LNAME={fr:"Français",en:"English",es:"Español"};
+function setLang(l){LANG=l;try{sessionStorage.setItem("fl_lang",l)}catch(e){}document.documentElement.lang=l;trTree(document.body);
+  const b=document.getElementById("langBtn");if(b){b.innerHTML=FLAGS[l];b.setAttribute("aria-label",(l==="fr"?"Langue : ":l==="en"?"Language: ":"Idioma: ")+LNAME[l])}}
+// voix en espagnol : construite à partir de la phrase française
+function frToEs(s){return String(s)
+  .replace(/^À (.+?)\. Il reste (\d+)/,"Turno de $1. Quedan $2").replace(/^À (.+)$/,"Turno de $1").replace(/\. Il reste (\d+)/,". Quedan $1")
+  .replace(/, pas de finish en 3 fléchettes/,", sin cierre en 3 dardos").replace(/\. Partie gagnée !/,". ¡Partida ganada!")
+  .replace(/\. Reste (\d+)/,". Quedan $1").replace(/^Corrigé : /,"Corregido: ").replace(/\. (\d+) points/,". $1 puntos")
+  .replace(/\bRaté, fléchette tombée\b/,"Fallo, el dardo ha caído").replace(/^Raté$/,"Fallo").replace(/^Zéro$/,"Cero").replace(/\bRaté\b/,"Fallo")
+  .replace(/^Une ratée$/,"Un fallo").replace(/^(\d+) ratées$/,"$1 fallos").replace(/^Annonce vocale activée$/,"Voz activada")
+  .replace(/\bdouble (\d+)/gi,"doble $1").replace(/\bDouble (\d+)/g,"Doble $1").replace(/\bbull\b/gi,"diana")}
+
 const ORDER=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
 const R={bullIn:6.35,bullOut:15.9,trIn:99,trOut:107,dbIn:162,dbOut:170};
 
@@ -640,13 +827,18 @@ const NATIVE=(()=>{const C=window.Capacitor;if(!C||!C.isNativePlatform||!C.isNat
   return{Plugins:{TextToSpeech:reg("TextToSpeech"),Share:reg("Share"),Filesystem:reg("Filesystem"),App:reg("App"),WebView:(window.capacitorExports&&window.capacitorExports.WebView)||reg("WebView")}}})();
 if(NATIVE)document.documentElement.classList.add("native");
 const voice={v:null,en:false,ok:"speechSynthesis" in window,primed:false,
-  nsay(t,cut){const T=NATIVE.Plugins.TextToSpeech;const go=()=>T.speak({text:t,lang:"fr-FR",rate:1.05,category:"playback",queueStrategy:1}).catch(()=>{});
+  nsay(t,cut,lg){const T=NATIVE.Plugins.TextToSpeech;const go=()=>T.speak({text:t,lang:lg||"fr-FR",rate:1.05,category:"playback",queueStrategy:1}).catch(()=>{});
     if(cut)T.stop().catch(()=>{}).then(go);else go()},
   pick(){if(!this.ok)return;const vs=speechSynthesis.getVoices();
     this.v=vs.find(v=>/^fr[-_]FR/i.test(v.lang)&&/google|thomas|amélie|amelie|audrey|marie/i.test(v.name))||vs.find(v=>/^fr[-_]FR/i.test(v.lang))||vs.find(v=>/^fr/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;
     this.en=!!(this.v&&/^en/i.test(this.v.lang))},
   prime(){if(NATIVE||!this.ok||this.primed)return;this.primed=true;try{const u=new SpeechSynthesisUtterance(" ");u.volume=0;speechSynthesis.speak(u)}catch(e){}},
-  say(fr,en,cut){if(NATIVE&&settings.voice){this.nsay(fr,cut);return}if(!this.ok||!settings.voice)return;try{if(!this.v)this.pick();if(cut)speechSynthesis.cancel();
+  say(fr,en,cut){
+    if(LANG!=="fr"&&settings.voice){const t=(LANG==="en"?(en||fr):frToEs(fr)).replace(/Joueur (\d+)/g,LANG==="en"?"Player $1":"Jugador $1"),lg=LANG==="en"?"en-GB":"es-ES";
+      if(NATIVE){this.nsay(t,cut,lg);return}if(!this.ok)return;
+      try{if(cut)speechSynthesis.cancel();const vs=speechSynthesis.getVoices(),v=vs.find(x=>x.lang.toLowerCase().startsWith(LANG)),u=new SpeechSynthesisUtterance(t);
+        if(v){u.voice=v;u.lang=v.lang}else u.lang=lg;u.rate=1.05;speechSynthesis.speak(u)}catch(e){}return}
+    if(NATIVE&&settings.voice){this.nsay(fr,cut);return}if(!this.ok||!settings.voice)return;try{if(!this.v)this.pick();if(cut)speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(this.en?(en||fr):fr);if(this.v){u.voice=this.v;u.lang=this.v.lang}else u.lang="fr-FR";u.rate=1.05;speechSynthesis.speak(u)}catch(e){}},
   dart(d){
     if(d.num===0)return d.out?["Zéro","Zero"]:["Raté","Miss"];
@@ -836,8 +1028,12 @@ function progChart(pts){ // une seule série : pas de légende, le titre la nomm
   show(last);wrap.append(svg,pv);return wrap;
 }
 $("openStats").onclick=openStats;
+function openLang(){$("langList").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===LANG));showSheet("langSheet")}
+$("langBtn").onclick=openLang;$("langClose").onclick=()=>hideSheet("langSheet");
+$("langList").querySelectorAll("button").forEach(b=>b.onclick=()=>{setLang(b.dataset.l);hideSheet("langSheet");render();
+  if(settings.voice)voice.say("Annonce vocale activée","Voice on",true)});
 $("statClose").onclick=()=>hideSheet("statSheet");
-$("statClear").onclick=()=>{if(!confirm("Effacer tout l'historique des parties et les statistiques ?"))return;save("fl_hist",[]);renderStats()};
+$("statClear").onclick=()=>{if(!confirm(tr("Effacer tout l'historique des parties et les statistiques ?")))return;save("fl_hist",[]);renderStats()};
 function showWin(){
   $("winName").textContent=game.players[game.winner].name+" gagne";
   $("winSub").textContent=isCricket()?"Fin de partie en cricket ("+game.players[game.winner].score+" points).":"Fin de partie en "+game.mode+".";
@@ -1095,7 +1291,7 @@ function renderSettings(){
     const b=document.createElement("button");b.className="nm";b.textContent=(on?"✓ ":"")+n;b.setAttribute("aria-pressed",on);
     b.onclick=()=>{if(on){if(settings.players.length>1)settings.players.splice(settings.players.indexOf(n),1)}else if(settings.players.length<MAXP)settings.players.push(n);sv();renderSettings()};
     const x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Supprimer "+n);
-    x.onclick=()=>{if(!confirm("Supprimer "+n+" des personnes enregistrées ?"))return;settings.roster=settings.roster.filter(q=>q!==n);if(settings.players.length>1)settings.players=settings.players.filter(q=>q!==n);sv();renderSettings()};
+    x.onclick=()=>{if(!confirm(tr("Supprimer "+n+" des personnes enregistrées ?")))return;settings.roster=settings.roster.filter(q=>q!==n);if(settings.players.length>1)settings.players=settings.players.filter(q=>q!==n);sv();renderSettings()};
     c.append(b,x);ro.append(c)});
   $("createP").disabled=false;
 
@@ -1542,6 +1738,9 @@ $("zoom").oninput=()=>applyZoom($("zoom").value);
 /* pinch to zoom, drag to pan (digital zoom) */
 const ptrs=new Map();let pinch=null,panStart=null;
 view.addEventListener("pointerdown",ev=>{
+  if(track&&!demo&&!calibrating&&ev.isPrimary){try{const c=track.getCapabilities?track.getCapabilities():{},[fx0,fy0]=cl2f(ev),[vx0,vy0]=f2v(fx0,fy0),adv={};
+    if(c.focusMode&&c.focusMode.includes("continuous"))adv.focusMode="continuous";adv.pointsOfInterest=[{x:vx0/vw,y:vy0/vh}];camAdv(adv);camLocked=false;
+    clearTimeout(viewT);if(Hi)checkView(1)}catch(e){}}
   const[fx,fy]=cl2f(ev);
   if(calibrating&&tmpPts&&ptrs.size===0){
     const r=view.getBoundingClientRect(),lim=44*view.width/r.width;let best=-1,bd=1e9;
@@ -1648,14 +1847,37 @@ $("dbgBtn").onclick=()=>{det.debug=!det.debug;$("dbgBtn").setAttribute("aria-pre
 $("quitDemo").onclick=()=>location.reload();
 
 /* ---------- bloque la mise au point et la balance des blancs une fois la cible trouvée (évite les faux mouvements) ---------- */
+// Une fois la cible trouvée, on vérifie la vue avant de figer la caméra : figer la mise au point sur une image
+// encore floue la garderait floue toute la partie. Image floue -> autofocus relancé au centre de la cible.
+// seuils étalonnés au banc : image nette 42 (Full HD) à 60 (4K), image floue de téléphone 5
+const SHARP_OK=25,SHARP_BAD=15;let viewQ=null,camLocked=false;
+function camAdv(adv){try{if(track&&Object.keys(adv).length)return track.applyConstraints({advanced:[adv]}).catch(()=>{})}catch(e){}}
+function refocus(){if(!track||demo||!track.getCapabilities)return;camLocked=false;
+  try{const c=track.getCapabilities(),adv={};if(c.focusMode&&c.focusMode.includes("continuous"))adv.focusMode="continuous";
+    if("pointsOfInterest" in (track.getSettings?track.getSettings():{})||c.pointsOfInterest){const q=Hi&&applyH(Hi,0,0);if(q)adv.pointsOfInterest=[{x:(q[0]+det.off[0])/vw,y:(q[1]+det.off[1])/vh}]}
+    camAdv(adv)}catch(e){}}
 function lockCam(){
   if(!track||demo||!track.getCapabilities)return;
   try{const c=track.getCapabilities(),adv={};
     if(c.focusMode&&c.focusMode.includes("manual"))adv.focusMode="manual";
     if(c.whiteBalanceMode&&c.whiteBalanceMode.includes("manual"))adv.whiteBalanceMode="manual";
-    if(Object.keys(adv).length)track.applyConstraints({advanced:[adv]}).catch(()=>{});
+    camAdv(adv);camLocked=true;
   }catch(e){}
 }
+let viewT=0;
+function checkView(tries){ // appelée après le repérage de la cible : conseils si la vue n'est pas bonne
+  clearTimeout(viewT);viewT=setTimeout(()=>{
+    const q=det.quality();if(!q||!Hi){if((tries||0)<5)checkView((tries||0)+1);return}
+    const a=applyH(Hi,-170,0),b=applyH(Hi,170,0),radPx=Math.hypot(b[0]-a[0],b[1]-a[1])/2;viewQ=Object.assign(q,{radPx:Math.round(radPx)});
+    const tips=[];
+    if(q.sharp<SHARP_BAD)tips.push("Image floue : essuie l'objectif, ou touche l'image pour faire la mise au point");
+    if(radPx<200)tips.push("La cible est petite à l'image : rapproche le téléphone pour plus de précision");
+    if(q.lum<55)tips.push("Image sombre : allume la lumière près de la cible");
+    $("viewInfo").textContent=viewTxt();
+    if(q.sharp>=SHARP_OK)lockCam();else{refocus();if((tries||0)<3)checkView((tries||0)+1)}
+    if(tips.length)setMsg(tips[0],"red");
+  },(tries?2000:1800))}
+function viewTxt(){if(!viewQ)return"";return "Netteté "+(viewQ.sharp>=SHARP_OK?"bonne":viewQ.sharp>=SHARP_BAD?"moyenne":"faible")+" ("+viewQ.sharp+") · cible "+(viewQ.radPx*2)+" px · lumière "+viewQ.lum}
 /* ---------- calibration automatique ---------- */
 const autoCal={on:false,last:null,ctx:null,lastScore:0,
   start(msg){this.on=true;this.last=null;this.lastScore=0;H=Hi=null;det.ctx=null;det.off=[0,0];setStatus(msg||"Recherche de la cible… vise-la","busy")},
@@ -1673,7 +1895,7 @@ const autoCal={on:false,last:null,ctx:null,lastScore:0,
       let fp=pts;try{const er=edgeRefine(pts,[0,0]);if(er&&er.rms<1.6)fp=er.pts}catch(e){console.warn(e)}
       pts.splice(0,4,...fp);
       this.stop();calib={pts,vw,vh,hz:hwZoom?zoomVal:null,auto:true};if(!demo)save("fl_calib",calib);
-      det.off=[0,0];updateH(pts);det.setup(video);lockCam();
+      det.off=[0,0];updateH(pts);det.setup(video);checkView(0);
       setStatus("Cible détectée ✓ en attente d'une fléchette","on");
       setMsg("Cible trouvée : lance, les points s'ajoutent tout seuls","green");
       if(autoZoomCheck(rad))return; // cible trop petite à l'image : zoom automatique puis nouveau repérage
@@ -1747,6 +1969,14 @@ const det={
       x.strokeStyle="rgba(0,255,255,.7)";x.lineWidth=1;x.beginPath();x.moveTo(mx(L),my(L));x.lineTo(mx(T),my(T));x.stroke();x.strokeStyle="#ff0";x.lineWidth=2;x.beginPath();x.arc(mx(T),my(T),6,0,7);x.stroke()});
     x.fillStyle="#fff";x.font="13px sans-serif";x.fillText("vue générale",6,S+16);x.fillText("avant",S+16,S+16);x.fillText("après (pointe en jaune)",2*S+26,S+16);
     diagLog.push({c,d,seen:lab(d),t:new Date().toLocaleTimeString()});if(diagLog.length>15)diagLog.shift();updErr()},
+  quality(){ // netteté (variance du laplacien rapportée au contraste), au centre de la cible, en vrais pixels ; luminosité moyenne
+    // mesurée sur l'image de travail, où la cible a toujours à peu près la même taille : comparable d'un téléphone à l'autre
+    const C=this.ctx;if(!C)return null;const W=C.canvas.width,Hc=C.canvas.height,n=Math.min(180,W,Hc);if(n<40)return null;
+    const x0=((W-n)/2)|0,y0=((Hc-n)/2)|0,d=C.getImageData(x0,y0,n,n).data,g=new Float32Array(n*n);
+    let sg=0,sg2=0;for(let i=0,j=0;i<g.length;i++,j+=4){const v=d[j]*.299+d[j+1]*.587+d[j+2]*.114;g[i]=v;sg+=v;sg2+=v*v}
+    const mg=sg/g.length,vg=Math.max(1,sg2/g.length-mg*mg);let sl=0,sl2=0,k=0;
+    for(let y=1;y<n-1;y++)for(let x=1;x<n-1;x++){const i=y*n+x,l=4*g[i]-g[i-1]-g[i+1]-g[i-n]-g[i+n];sl+=l;sl2+=l*l;k++}
+    const vl=sl2/k-(sl/k)**2;return{sharp:Math.round(100*vl/vg),lum:Math.round(mg)}},
   pushRing(){const F=this.frameF;if(!F||!F.ok)return;this.ringK=((this.ringK||0)+1)%3;this.copyF(F,"ring"+this.ringK);this.ringN=Math.min(3,(this.ringN||0)+1);
     // moyenne glissante des images calmes (bruit du capteur réduit), calculée par la carte graphique : sert d'image de référence
     const e=this.emaF;if(!this.emaN||!e||e.w!==F.w||e.h!==F.h){this.copyF(F,"emaF");this.emaN=1}
@@ -2367,6 +2597,7 @@ $("demoBtn").onclick=()=>{voice.prime();
 
 {const sg=loadGame();if(sg&&sg.game&&Array.isArray(sg.game.players)&&sg.game.players.length){game=sg.game;undoStack=sg.undo||[];det.pendingRemoval=false;render();if(game.over)showWin()}else newGame()}
 setMsg("Prêt : active la caméra ou compte à la main","");
+setLang(LANG);
 /* ---------- mise à jour depuis GitHub (appli Android) ---------- */
 // La dernière version d'index.html est téléchargée depuis le dépôt, enregistrée dans le téléphone,
 // puis l'appli redémarre dessus (même adresse : partie en cours, joueurs et réglages gardés).

@@ -45,6 +45,12 @@ Le bouton en haut à gauche de « Partie » ouvre le grand écran, lisible à 2-
 (la caméra reste en vignette et la détection continue). Le bouton graphique ouvre les statistiques :
 moyenne, meilleur tour, 180, meilleur finish, réussite aux doubles, progression et dernières parties.
 
+Le drapeau en haut choisit la langue : français (par défaut, à chaque démarrage), anglais ou espagnol,
+pour l'écran et pour la voix.
+
+Dans Partie → Détection et diagnostic : la résolution de la caméra et la qualité de la vue (netteté,
+taille de la cible à l'image, lumière). Si l'image est floue, touche-la pour faire la mise au point.
+
 ## Version web
 
 `index.html` fonctionne aussi tel quel dans un navigateur (GitHub Pages, par exemple).

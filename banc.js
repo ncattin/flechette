@@ -218,7 +218,8 @@ function summary(){
     errs=v.map(r=>r.err).filter(e=>e!=null).sort((a,b)=>a-b),q=p=>errs.length?errs[Math.min(errs.length-1,Math.floor(errs.length*p))]:NaN,
     bad=v.filter(r=>!r.ok),badB=bad.filter(r=>r.bd<1.5).length,reb=res.filter(r=>r.kind==="rebond"),total=v.length+miss;
   const line=POSE+" : "+ok+"/"+total+" justes ("+(total?Math.round(100*ok/total):0)+" %), "+miss+" manquées, "+ghosts+" fantômes, erreur médiane "+q(.5).toFixed(1)+" mm, p90 "+q(.9).toFixed(1)+" mm";
-  return{perf:{step:pstat(perf.step),analyse:pstat(perf.an),sub:Object.fromEntries(Object.entries(subT).map(([k,v])=>[k,{tot:Math.round(v[0]),n:v[1],moy:+(v[0]/v[1]).toFixed(1)}]))},pose:POSE,seed:SEED,total,ok,miss,ghosts,bad:bad.length,badBorder:badB,med:q(.5),p90:q(.9),max:errs[errs.length-1],
+  let vq=null;try{vq=FL.det.quality()}catch(e){}
+  return{vq,perf:{step:pstat(perf.step),analyse:pstat(perf.an),sub:Object.fromEntries(Object.entries(subT).map(([k,v])=>[k,{tot:Math.round(v[0]),n:v[1],moy:+(v[0]/v[1]).toFixed(1)}]))},pose:POSE,seed:SEED,total,ok,miss,ghosts,bad:bad.length,badBorder:badB,med:q(.5),p90:q(.9),max:errs[errs.length-1],
     rebonds:reb.length,rebondsOk:reb.filter(r=>r.fell||!r.matched).length,lat:v.length?Math.round(v.reduce((a,r)=>a+r.lat,0)/v.length):0,line,
     wrong:bad.map(r=>r.want+"→"+r.got+" ("+r.err.toFixed(1)+" mm, bord "+r.bd.toFixed(1)+(r.fb?", repli géométrique":"")+", repérage "+r.cal+" px)"),
     repli:v.filter(r=>r.fb).map(r=>(r.ok?"ok ":"FAUX ")+r.err.toFixed(1)+"mm "+JSON.stringify(r.geo))}
