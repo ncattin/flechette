@@ -1908,6 +1908,21 @@ const autoCal={on:false,last:null,ctx:null,lastScore:0,
 (function autoLoop(){autoCal.tick();setTimeout(autoLoop,autoCal.on?450:900)})();
 $("autoBtn").onclick=()=>{if(vw)autoCal.start()};
 
+/* ---------- réseau de neurones « pointe de fléchette » (expérimental, branche ia) ---------- */
+// Activé par ?nn dans l'adresse. Le réseau reçoit l'image avant et l'image après autour de la nouvelle
+// fléchette et renvoie une carte dont le maximum est la pointe.
+const NN={sess:null,on:/[?&]nn\b/.test(location.search),minConf:+((location.search.match(/[?&]nnconf=([\d.]+)/)||[])[1]||0),agree:+((location.search.match(/[?&]nnagree=([\d.]+)/)||[])[1]||8),S:192,HM:48,
+  ready(){return!!this.sess},
+  async load(){if(!this.on||this.sess||this.loading)return;this.loading=true;
+    try{if(!window.ort)await new Promise((ok,ko)=>{const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js";sc.onload=ok;sc.onerror=ko;document.head.append(sc)});
+      ort.env.wasm.numThreads=1;this.sess=await ort.InferenceSession.create("ia/modele/tipnet.onnx",{executionProviders:["wasm"]})}catch(e){console.warn("réseau indisponible",e)}},
+  async tip(a,b){const S=this.S,HM=this.HM,da=a.getContext("2d").getImageData(0,0,S,S).data,db=b.getContext("2d").getImageData(0,0,S,S).data,inp=new Float32Array(6*S*S);
+    for(let i=0;i<S*S;i++)for(let k=0;k<3;k++){inp[k*S*S+i]=da[i*4+k]/255;inp[(3+k)*S*S+i]=db[i*4+k]/255}
+    const out=await this.sess.run({paire:new ort.Tensor("float32",inp,[1,6,S,S])}),h=out.carte.data;let mx=-1e9;for(const v of h)if(v>mx)mx=v;
+    let sw=0,sx=0,sy=0;for(let y=0;y<HM;y++)for(let x=0;x<HM;x++){const w=Math.exp(h[y*HM+x]-mx);sw+=w;sx+=w*(x+.5);sy+=w*(y+.5)}
+    return{x:sx/sw*S/HM,y:sy/sw*S/HM,conf:1/sw}} // conf = poids du maximum (1 = carte très piquée)
+};
+NN.load();
 /* ---------- detector (with hand-held stabilisation) ---------- */
 const det={
   enabled:true,debug:false,pendingRemoval:false,PW:0,PH:0,bx:0,by:0,bw:1,bh:1,ctx:null,mask:null,maskN:0,
@@ -2075,6 +2090,7 @@ const det={
   diff3(a,j,b,k){const r=Math.abs(a[j]-b[k]),g=Math.abs(a[j+1]-b[k+1]),bl=Math.abs(a[j+2]-b[k+2]);return r>g?(r>bl?r:bl):(g>bl?g:bl)},
   diff(a,b,j){const r=Math.abs(a[j]-b[j]),g=Math.abs(a[j+1]-b[j+1]),bl=Math.abs(a[j+2]-b[j+2]);return r>g?(r>bl?r:bl):(g>bl?g:bl)},
   step(){
+    if(this.nnBusy)return;
     if(this.inAn){this.inAn=false;if(this.refFpend&&this.curF){this.refFpend=false;this.copyF(this.curF,"refF")}} // la référence devient l'image analysée
     if(!this.enabled||calibrating||!H||!this.ctx||!vw||video.readyState<2)return;
     this.snapV();
@@ -2298,11 +2314,33 @@ const det={
     const keep=[];for(const q of cand){const k=keep.findIndex(o=>Math.hypot(o.bx-q.bx,o.by-q.by)<25);
       if(k<0){keep.push(q);continue}const a=keep[k],far=[a.tl,q.tl].filter(Boolean);if(q.tlen<a.tlen)keep[k]=q; // le suivi le plus court est le plus sûr
       const K=keep[k];K.tl=far.sort((u,v)=>Math.hypot(v[0]-K.tx,v[1]-K.ty)-Math.hypot(u[0]-K.tx,u[1]-K.ty))[0]||K.tl} // empennage : l'extrémité la plus lointaine
-    for(const q0 of keep){
-      const{c,tx,ty,vx,vy,bx,by,tl,tr}=this.geoCheck(q0);
+    const qs=keep.map(q=>this.geoCheck(q));
+    if(NN.ready()&&qs.length){ // réseau : la pointe est corrigée sur des découpes avant/après prises maintenant, puis la fléchette est comptée
+      const jobs=qs.map(q=>this.nnCrop(q));this.nnBusy=true;
+      Promise.all(jobs.map(j=>j?NN.tip(j.a,j.b).catch(()=>null):null)).then(rs=>{
+        rs.forEach((r,i)=>{const j=jobs[i];if(!r||!j)return;const q=qs[i];q.nn={x:r.x,y:r.y,conf:r.conf,from:[q.tx,q.ty]};
+          // accord à quelques mm : la pointe fine de la méthode actuelle est gardée ; désaccord : elle s'est trompée, on prend celle du réseau
+          if(r.conf>=NN.minConf){const x=j.x0+r.x*j.k,y=j.y0+r.y*j.k,v=this.p2v(x+.5,y+.5),b=applyH(H,v[0],v[1]);q.nn.d=Math.hypot(b[0]-q.bx,b[1]-q.by);
+            if(q.nn.d>NN.agree)Object.assign(q,{tx:x,ty:y,vx:v[0],vy:v[1],bx:b[0],by:b[1]})}});
+        this.nnBusy=false;this.addKeep(qs,keep.length)}).catch(()=>{this.nnBusy=false;this.addKeep(qs,keep.length)});
+      return}
+    this.addKeep(qs,keep.length);
+  },
+  nnCrop(q){ // découpes 192x192 avant/après autour de la fléchette, comme à l'entraînement (pointe ~1/3, empennage ~2/3)
+    const F=this.curF,Rf=this.refF;if(!F||!Rf||!F.ok||!Rf.ok||F.w!==Rf.w||!pose())return null;
+    const C=this.p2b(q.tx,q.ty);if(!C)return null;const tn=Math.hypot(...TAIL),L=this.dartLen||145;
+    const a=this.v2p(proj3(C[0],C[1],0)),t=this.v2p(proj3(C[0]+TAIL[0]*L/tn,C[1]+TAIL[1]*L/tn,TAIL[2]*L/tn));if(!a||!t)return null;
+    const dl=Math.hypot(t[0]-a[0],t[1]-a[1]);if(dl<6)return null;
+    const sP=F.w/this.PW,Sp=dl*1.55,cx=q.tx+(t[0]-a[0])*.33,cy=q.ty+(t[1]-a[1])*.33,x0=cx-Sp/2,y0=cy-Sp/2;
+    const mk=src=>{const c=document.createElement("canvas");c.width=c.height=192;c.getContext("2d").drawImage(src.c,(x0+.5)*sP,(y0+.5)*sP,Sp*sP,Sp*sP,0,0,192,192);return c};
+    return{a:mk(Rf),b:mk(F),x0,y0,k:Sp/192}},
+  addKeep(qs,nk){let hits=0;
+    for(const q of qs){
+      const{c,tx,ty,vx,vy,bx,by,tl,tr}=q;
       if(locked())break;
       if(game.turn.some(o=>o.b&&Math.hypot(o.b[0]-bx,o.b[1]-by)<2.5))continue;
-      const d=scoreAt(bx,by);d.auto=true;{const w=nearWire(bx,by);if(w){d.alt=w.alt;d.altD=w.d}}d.pt=[vx,vy];d.b=[bx,by];d.pp=[tx,ty];d.tl=tl?[tl[0],tl[1]]:null;if(tr)d.dbg=Object.assign({nk:keep.length},tr);try{this.snapDiag(d)}catch(e){}d.bp=c.pix.filter((p,k)=>k%Math.max(1,Math.floor(c.n/160))===0);(this.pixOf||(this.pixOf=new WeakMap())).set(d,c.pix);
+      const d=scoreAt(bx,by);d.auto=true;{const w=nearWire(bx,by);if(w){d.alt=w.alt;d.altD=w.d}}d.pt=[vx,vy];d.b=[bx,by];d.pp=[tx,ty];d.tl=tl?[tl[0],tl[1]]:null;if(tr)d.dbg=Object.assign({nk},tr);try{this.snapDiag(d)}catch(e){}d.bp=c.pix.filter((p,k)=>k%Math.max(1,Math.floor(c.n/160))===0);(this.pixOf||(this.pixOf=new WeakMap())).set(d,c.pix);
+      if(q.nn)d.nn=q.nn;
       if(addDart(d)){hits++;flashDart(game.turn.length-1);setStatus("Touché : "+lab(d)+" ("+d.value+")","hit");
         if(d.alt&&!locked())setMsg("Sur un fil : "+lab(d)+" ou "+lab(d.alt)+" ? Touche « ou "+lab(d.alt)+" » si besoin","")}
     }

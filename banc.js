@@ -148,7 +148,7 @@ function poll(){
     if(!tr){ghosts++;res.push({kind:"fantome",got:FL.lab(d)});continue}
     tr.matched=true;L("détecté "+FL.lab(d)+" (vrai "+tr.label+")");const err=d.b?Math.hypot(d.b[0]-tr.bx,d.b[1]-tr.by):null;
     res.push({kind:"vue",want:tr.label,got:FL.lab(d),ok:tr.label===FL.lab(d),err,lat:performance.now()-tr.at,bd:boundaryDist(tr.bx,tr.by),bx:tr.bx,by:tr.by,bounce:tr.bounce,
-      cal:calErr(),gb:d.b,fb:!!(d.dbg&&d.dbg.fb),geo:d.dbg&&d.dbg.geo,turn:turnN,idx:turnTruth.indexOf(tr),pose:C,dir:tr.dir});
+      nn:d.nn?{conf:+d.nn.conf.toFixed(3),errClassique:+(()=>{const q=FL.det.p2b(d.nn.from[0],d.nn.from[1]);return Math.hypot(q[0]-tr.bx,q[1]-tr.by)})().toFixed(1)}:null,cal:calErr(),gb:d.b,fb:!!(d.dbg&&d.dbg.fb),geo:d.dbg&&d.dbg.geo,turn:turnN,idx:turnTruth.indexOf(tr),pose:C,dir:tr.dir});
     if(err>4&&FL.det.curF)try{const De=FL.det,F=De.curF,c=document.createElement("canvas");c.width=F.w;c.height=F.h;const x=c.getContext("2d");x.drawImage(F.c,0,0);
       const k=F.w/De.bw,tv=proj([tr.bx,tr.by,0]),T=[(tv[0]-De.bx-De.off[0])*k,(tv[1]-De.by-De.off[1])*k],sP=F.w/De.PW;
       x.lineWidth=2;x.strokeStyle="#0f0";x.beginPath();x.arc(T[0],T[1],7,0,7);x.stroke();
