@@ -6,10 +6,12 @@
    Paramètres : ?banc&pose=dessous|face|cote|bas&n=30&seed=1&shake=0..3 */
 (function(){
 "use strict";
-const FL=window.__fl;if(!FL)return;
+const FL=window.__fl;if(!FL)return;if(/[?&]nosnap/.test(location.search))window.__noSnap=true;
 const Q=new URLSearchParams(location.search);
-const POSE=Q.get("pose")||"dessous",NT=+(Q.get("n")||30),SEED=+(Q.get("seed")||1),SHAKE=+(Q.get("shake")||1);
-const W=1920,H=1080,F=0.82*W,CX=W/2,CY=H/2;
+// tel : image comme celle d'un vrai téléphone (floue, jaunie, couleurs ternes, bruit fort, 1280x720, main qui tremble, capture d'écran qui secoue)
+const TEL=Q.has("tel");
+const POSE=Q.get("pose")||"dessous",NT=+(Q.get("n")||30),SEED=+(Q.get("seed")||1),SHAKE=+(Q.get("shake")||(TEL?3:1));
+const UHD=Q.has("uhd"),W=UHD?3840:TEL?1280:1920,H=UHD?2160:TEL?720:1080,F=0.82*W,CX=W/2,CY=H/2;
 const R=FL.R,ORDER=FL.ORDER;
 let seed=SEED>>>0||1;const rnd=()=>{seed=(seed+0x6D2B79F5)>>>0;let t=seed;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296};
 const gauss=()=>{let u=0,v=0;while(!u)u=rnd();while(!v)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
@@ -64,7 +66,7 @@ const bg=document.createElement("canvas");bg.width=W;bg.height=H;
 
 /* ---------- bruit du capteur ---------- */
 const noise=[0,1,2].map(()=>{const c=document.createElement("canvas");c.width=c.height=256;const x=c.getContext("2d"),id=x.createImageData(256,256);
-  for(let j=0;j<id.data.length;j+=4){const v=rnd()*255;id.data[j]=id.data[j+1]=id.data[j+2]=v;id.data[j+3]=16}x.putImageData(id,0,0);return x.createPattern(c,"repeat")});
+  for(let j=0;j<id.data.length;j+=4){const v=rnd()*255;id.data[j]=id.data[j+1]=id.data[j+2]=v;id.data[j+3]=TEL?14:16}x.putImageData(id,0,0);return x.createPattern(c,"repeat")});
 
 /* ---------- fléchettes ---------- */
 const LIGHT=nrm([-.12,.75,-.65]); // direction de la lumière (du plafond, devant la cible)
@@ -93,7 +95,7 @@ function drawDart(x,D,shadow){
 const out=document.createElement("canvas");out.width=W;out.height=H;const ox=out.getContext("2d");
 const scene=document.createElement("canvas");scene.width=W;scene.height=H;const sx=scene.getContext("2d");
 const shd=document.createElement("canvas");shd.width=W;shd.height=H;const shx=shd.getContext("2d");
-let darts=[],hand=null,jx=0,jy=0,vx=0,vy=0,bump=0,expo=0,t0=performance.now();
+let jolt=null,darts=[],hand=null,jx=0,jy=0,vx=0,vy=0,bump=0,expo=0,t0=performance.now();
 function render(){
   const now=performance.now(),t=(now-t0)/1000;
   sx.drawImage(bg,0,0);
@@ -109,7 +111,9 @@ function render(){
   if(SHAKE){vx+=gauss()*.05*SHAKE;vy+=gauss()*.05*SHAKE;vx*=.85;vy*=.85;jx=(jx+vx)*.96;jy=(jy+vy)*.96}
   if(bump){bump--;jx+=bump>8?1.4*SHAKE:0}
   ox.setTransform(1,0,0,1,0,0);ox.fillStyle="#000";ox.fillRect(0,0,W,H);
-  ox.setTransform(1,0,0,1,jx,jy);ox.drawImage(scene,0,0);ox.setTransform(1,0,0,1,0,0);
+  let kx=0,ky=0;if(jolt){const e=now-jolt.t;if(e>1200){jolt.res&&(jx+=jolt.dx*.3,jy+=jolt.dy*.3);jolt=null}else{const k=e<250?e/250:1-.7*Math.min(1,(e-250)/650);kx=jolt.dx*k;ky=jolt.dy*k}}
+  if(TEL)ox.filter="blur(1.4px) saturate(.7) sepia(.3) brightness(1.05)";
+  ox.setTransform(1,0,0,1,jx+kx,jy+ky);ox.drawImage(scene,0,0);ox.setTransform(1,0,0,1,0,0);ox.filter="none";
   // exposition automatique : légère respiration + réaction quand la main arrive
   const ex=.012*Math.sin(t*2*Math.PI*.4)+expo;expo*=.97;
   if(ex>0){ox.fillStyle="rgba(255,255,255,"+ex+")";ox.fillRect(0,0,W,H)}else if(ex<0){ox.fillStyle="rgba(0,0,0,"+(-ex)+")";ox.fillRect(0,0,W,H)}
@@ -118,6 +122,10 @@ function render(){
 }
 
 /* ---------- lancers ---------- */
+function calErr(){ // écart (px) entre la cible repérée par l'appli et la vraie, sur 8 points du double
+  const Hi=FL.Hi;if(!Hi)return null;let m=0;
+  for(let i=0;i<8;i++){const a=i*Math.PI/4,bx=170*Math.sin(a),by=-170*Math.cos(a),q=FL.applyH(Hi,bx,by),t=proj([bx,by,0]);if(!t)continue;
+    m=Math.max(m,Math.hypot(q[0]+FL.det.off[0]-t[0]-jx,q[1]+FL.det.off[1]-t[1]-jy))}return +m.toFixed(1)}
 function boundaryDist(bx,by){const r=Math.hypot(bx,by);let a=Math.atan2(bx,-by)*180/Math.PI;if(a<0)a+=360;
   let m=Math.min(...[R.bullIn,R.bullOut,R.trIn,R.trOut,R.dbIn,R.dbOut].map(q=>Math.abs(r-q)));
   if(r>R.bullOut&&r<R.dbOut+2){const da=Math.abs(((a+9)%18)-9);m=Math.min(m,Math.abs(9-da)*Math.PI/180*r)}return m}
@@ -140,7 +148,7 @@ function poll(){
     if(!tr){ghosts++;res.push({kind:"fantome",got:FL.lab(d)});continue}
     tr.matched=true;L("détecté "+FL.lab(d)+" (vrai "+tr.label+")");const err=d.b?Math.hypot(d.b[0]-tr.bx,d.b[1]-tr.by):null;
     res.push({kind:"vue",want:tr.label,got:FL.lab(d),ok:tr.label===FL.lab(d),err,lat:performance.now()-tr.at,bd:boundaryDist(tr.bx,tr.by),bx:tr.bx,by:tr.by,bounce:tr.bounce,
-      gb:d.b,fb:!!(d.dbg&&d.dbg.fb),geo:d.dbg&&d.dbg.geo,turn:turnN,idx:turnTruth.indexOf(tr),pose:C,dir:tr.dir});
+      cal:calErr(),gb:d.b,fb:!!(d.dbg&&d.dbg.fb),geo:d.dbg&&d.dbg.geo,turn:turnN,idx:turnTruth.indexOf(tr),pose:C,dir:tr.dir});
     if(err>4&&FL.det.curF)try{const De=FL.det,F=De.curF,c=document.createElement("canvas");c.width=F.w;c.height=F.h;const x=c.getContext("2d");x.drawImage(F.c,0,0);
       const k=F.w/De.bw,tv=proj([tr.bx,tr.by,0]),T=[(tv[0]-De.bx-De.off[0])*k,(tv[1]-De.by-De.off[1])*k],sP=F.w/De.PW;
       x.lineWidth=2;x.strokeStyle="#0f0";x.beginPath();x.arc(T[0],T[1],7,0,7);x.stroke();
@@ -190,6 +198,7 @@ async function run(){
       darts.push(D);turnTruth.push(tr);bump=rnd()<.15?12:0;L("lancer "+tr.label+(tr.bounce?" (rebond)":""));
       if(tr.bounce){await wait(1600);darts.splice(darts.indexOf(D),1);tr.bounceGone=true;await wait(1800)}else await wait(3400);
     }
+    if(TEL){jolt={t:performance.now(),dx:(rnd()-.5)*24,dy:(rnd()-.5)*24,res:true};L("secousse (capture d'écran)")}
     await wait(500);
     // retrait à la main
     const ps=darts.map(D=>proj(D.P(60))).filter(Boolean),mx=ps.length?ps.reduce((a,p)=>a+p[0],0)/ps.length:CX,my=ps.length?ps.reduce((a,p)=>a+p[1],0)/ps.length:CY;
@@ -211,11 +220,11 @@ function summary(){
   const line=POSE+" : "+ok+"/"+total+" justes ("+(total?Math.round(100*ok/total):0)+" %), "+miss+" manquées, "+ghosts+" fantômes, erreur médiane "+q(.5).toFixed(1)+" mm, p90 "+q(.9).toFixed(1)+" mm";
   return{perf:{step:pstat(perf.step),analyse:pstat(perf.an),sub:Object.fromEntries(Object.entries(subT).map(([k,v])=>[k,{tot:Math.round(v[0]),n:v[1],moy:+(v[0]/v[1]).toFixed(1)}]))},pose:POSE,seed:SEED,total,ok,miss,ghosts,bad:bad.length,badBorder:badB,med:q(.5),p90:q(.9),max:errs[errs.length-1],
     rebonds:reb.length,rebondsOk:reb.filter(r=>r.fell||!r.matched).length,lat:v.length?Math.round(v.reduce((a,r)=>a+r.lat,0)/v.length):0,line,
-    wrong:bad.map(r=>r.want+"→"+r.got+" ("+r.err.toFixed(1)+" mm, bord "+r.bd.toFixed(1)+(r.fb?", repli géométrique":"")+")"),
+    wrong:bad.map(r=>r.want+"→"+r.got+" ("+r.err.toFixed(1)+" mm, bord "+r.bd.toFixed(1)+(r.fb?", repli géométrique":"")+", repérage "+r.cal+" px)"),
     repli:v.filter(r=>r.fb).map(r=>(r.ok?"ok ":"FAUX ")+r.err.toFixed(1)+"mm "+JSON.stringify(r.geo))}
 }
 const box=document.createElement("div");box.style.cssText="position:fixed;left:6px;bottom:6px;right:6px;z-index:99;background:rgba(0,0,0,.8);color:#7CFC9A;font:12px monospace;padding:6px;border-radius:6px;pointer-events:none";document.body.append(box);
 function status(t){box.textContent="BANC "+t}
-window.__bench={res,summary,log,snaps,proj,get done(){return done}};
+window.__bench={tel:TEL,res,summary,log,snaps,proj,get done(){return done}};
 status("préparation…");run();
 })();

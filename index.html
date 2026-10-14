@@ -584,6 +584,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <div class="toggle"><label for="voiceOn">Annonce vocale des scores</label><input type="checkbox" id="voiceOn"></div>
     <details class="more">
       <summary>Détection et diagnostic</summary>
+      <p class="lab small" id="camRes">Caméra : pas encore activée</p>
       <div class="field"><label for="sens">Sensibilité <span id="sensVal"></span></label><input type="range" id="sens" min="1" max="10" step="1">
         <span class="lab small">Plus haut : les fléchettes fines ou lointaines sont mieux vues, mais une ombre peut compter. Plus bas : l'inverse.</span></div>
       <div class="field"><span class="lab">À chaque correction d'une fléchette mal comptée, une image est gardée. Envoie-les pour faire progresser la détection.</span>
@@ -620,7 +621,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v28";
+const VER="v29";
 const ORDER=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
 const R={bullIn:6.35,bullOut:15.9,trIn:99,trOut:107,dbIn:162,dbOut:170};
 
@@ -747,7 +748,7 @@ function nextTurn(auto){
   if(isCricket())e.ps.forEach((q,i)=>{game.players[i].score=q.score;game.players[i].marks=q.marks});
   else p.score=e.bust?game.turnStart:e.rem;
   if(e.won){game.over=true;game.winner=game.cur;render();recordGame(true);showWin();return}
-  if(!auto&&game.turn.some(d=>d.auto)){det.pendingRemoval=true;det.pendPP=game.turn.filter(d=>d.bp).map(d=>d.bp)}
+  if(!auto&&game.turn.some(d=>d.auto)){det.pendingRemoval=true;det.pendT=Date.now();det.pendPP=game.turn.filter(d=>d.bp).map(d=>d.bp)}
   game.cur=(game.cur+1)%game.players.length;
   game.turnStart=game.players[game.cur].score;game.turn=[];
   render();setMsg("À "+game.players[game.cur].name+" de jouer","");
@@ -1157,11 +1158,15 @@ function updateH(pts){H=solveH(pts,DST);Hi=solveH(DST,pts)}
 /* ---------- recalage fin automatique : bords réels des anneaux et des secteurs, en pleine résolution ---------- */
 const ERC=document.createElement("canvas");
 function edgeRefine(pts,off,src){
-  src=src||video;const W0=src.videoWidth||src.width,H0=src.videoHeight||src.height;if(!W0||!H0)return null;
-  if(ERC.width!==W0||ERC.height!==H0){ERC.width=W0;ERC.height=H0}
-  const ex=ERC.getContext("2d",{willReadFrequently:true});ex.drawImage(src,0,0,W0,H0);const D=ex.getImageData(0,0,W0,H0).data;
+  src=src||video;const VW=src.videoWidth||src.width,VH=src.videoHeight||src.height;if(!VW||!VH)return null;
   const ox=off?off[0]:0,oy=off?off[1]:0;
-  const px=(x,y)=>{x+=ox;y+=oy;if(x<1||y<1||x>=W0-2||y>=H0-2)return null;const xi=x|0,yi=y|0,fx=x-xi,fy=y-yi,i=(yi*W0+xi)*4,j=i+W0*4,o=[0,0,0];
+  // seule la zone de la cible est lue (en 4K, l'image entière serait trop lourde)
+  let rx0=1e9,ry0=1e9,rx1=-1e9,ry1=-1e9;{const h0=solveH(DST,pts);if(!h0)return null;for(let i=0;i<24;i++){const a=i/24*2*Math.PI,q=applyH(h0,185*Math.sin(a),-185*Math.cos(a));rx0=Math.min(rx0,q[0]+ox);rx1=Math.max(rx1,q[0]+ox);ry0=Math.min(ry0,q[1]+oy);ry1=Math.max(ry1,q[1]+oy)}}
+  rx0=Math.max(0,Math.floor(rx0-8));ry0=Math.max(0,Math.floor(ry0-8));rx1=Math.min(VW,Math.ceil(rx1+8));ry1=Math.min(VH,Math.ceil(ry1+8));
+  const W0=rx1-rx0,H0=ry1-ry0;if(W0<16||H0<16)return null;
+  if(ERC.width!==W0||ERC.height!==H0){ERC.width=W0;ERC.height=H0}
+  const ex=ERC.getContext("2d",{willReadFrequently:true});ex.drawImage(src,rx0,ry0,W0,H0,0,0,W0,H0);const D=ex.getImageData(0,0,W0,H0).data;
+  const px=(x,y)=>{x+=ox-rx0;y+=oy-ry0;if(x<1||y<1||x>=W0-2||y>=H0-2)return null;const xi=x|0,yi=y|0,fx=x-xi,fy=y-yi,i=(yi*W0+xi)*4,j=i+W0*4,o=[0,0,0];
     for(let k=0;k<3;k++)o[k]=(D[i+k]*(1-fx)+D[i+4+k]*fx)*(1-fy)+(D[j+k]*(1-fx)+D[j+4+k]*fx)*fy;return o};
   const Hi0=solveH(DST,pts),b2i=(bx,by)=>applyH(Hi0,bx,by);
   const sat=c=>Math.max(c[0],c[1],c[2])-Math.min(c[0],c[1],c[2]),lum=c=>c[0]+c[1]+c[2],rg=c=>c[0]-c[1];
@@ -1393,13 +1398,12 @@ function refineH(pts,S,rm,gm,W,Hh){
 }
 const video=$("video"),view=$("view"),vctx=view.getContext("2d");
 let stream=null,track=null,vw=0,vh=0,calibrating=false,tmpPts=null,drag=-1,loopOn=false,demo=null,frozen=null;
+if(!settings.v29){settings.v29=true;settings.zoom=1;save("fl_settings",settings)} // l'ancien zoom de la caméra (flou) est remis à 1
 let hwZoom=null,zoomVal=settings.zoom||1,dz=1,pcx=0,pcy=0,autoZoomDone=false;
 function autoZoomCheck(rad){ // la cible doit bien remplir l'image : plus de pixels par mm = pointes mieux vues
   if(demo||autoZoomDone||!vw)return false;autoZoomDone=true;
-  const need=.62*Math.min(vw,vh)/(2*1.35*rad); // cible (avec les numéros) + place pour les fléchettes qui dépassent
-  if(hwZoom){const tz=Math.min(hwZoom.max,3,Math.round(zoomVal*need*10)/10);
-    if(tz>=zoomVal*1.3){setMsg("Zoom automatique ×"+tz.toFixed(1)+" pour mieux voir les pointes","");applyZoom(tz);return true}}
-  else if(need>1.6)setMsg("La cible est petite à l'image : rapproche le téléphone pour plus de précision","");
+  // pas de zoom de la caméra (il agrandit une petite image) : l'appli cadre elle-même la cible dans l'image détaillée
+  if(rad<170)setMsg("La cible est petite à l'image : rapproche le téléphone pour plus de précision","");
   return false}
 function tipMode(){return demo&&demo.real?"bottom":(settings.tip||"auto")}
 function setStatus(t,k){$("status").textContent=t;$("dot").className="dot"+(k?" "+k:"")}
@@ -1426,10 +1430,18 @@ function curOff(){return calibrating?[0,0]:det.off}
 function c2f(x,y){const o=curOff();return v2f(x+o[0],y+o[1])}           // calibration coords -> frame
 function b2f(bx,by){const[x,y]=applyH(Hi,bx,by);return c2f(x,y)}       // board mm -> frame
 
+// caméra : la plus haute résolution possible (jusqu'à 4K). Le zoom se fait ensuite dans l'appli, sur cette image
+// détaillée : bien plus net que le zoom de la caméra, qui agrandit une petite image.
+async function openCam(){
+  const tries=[{width:{ideal:3840},height:{ideal:2160}},{width:{ideal:2560},height:{ideal:1440}},{width:{ideal:1920},height:{ideal:1080}}];
+  let last=null;
+  for(const t of tries){try{return await navigator.mediaDevices.getUserMedia({audio:false,video:Object.assign({facingMode:{ideal:"environment"},frameRate:{ideal:30}},t)})}
+    catch(e){last=e;if(e&&e.name==="NotAllowedError")throw e}}
+  throw last}
 $("startCam").onclick=async()=>{voice.prime();
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camFail("Ce navigateur ne donne pas accès à la caméra.");return}
   try{
-    const s=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}}});
+    const s=await openCam();
     await startStream(s,false);
   }catch(e){
     camFail(e&&e.name==="NotAllowedError"?"Accès à la caméra refusé. Autorise la caméra pour ce site dans les réglages du navigateur, puis réessaie. Le comptage manuel reste disponible.":"Impossible d'ouvrir la caméra ("+(e&&e.name||"erreur")+"). Le comptage manuel reste disponible.");
@@ -1441,7 +1453,7 @@ document.addEventListener("visibilitychange",async()=>{
   if(!stream||demo)return;
   det.resetRef();det.pendingRemoval=false;
   const dead=!track||track.readyState==="ended"||!video.videoWidth;
-  try{if(dead){const s=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}}});await startStream(s,false)}
+  try{if(dead){const s=await openCam();await startStream(s,false)}
     else{await video.play().catch(()=>{});autoCal.start("Reprise : je vérifie la cible…")}}catch(e){setStatus("Touche « Activer la caméra » pour reprendre","busy")}
 });
 /* ---------- bouton REC : vidéo de la partie (caméra cadrée sur la cible + détections + scores) ---------- */
@@ -1485,6 +1497,7 @@ async function startStream(s,isDemo){
   video.srcObject=s;await video.play();
   await new Promise(r=>{if(video.videoWidth)r();else video.onloadedmetadata=r});
   vw=video.videoWidth;vh=video.videoHeight;pcx=vw/2;pcy=vh/2;
+  $("camRes").textContent="Caméra : "+Math.max(vw,vh)+" × "+Math.min(vw,vh)+" pixels"+(Math.max(vw,vh)>=3000?" (4K)":"");
   sizeView();
   document.body.classList.add("camlive");$("camoff").hidden=true;$("pill").hidden=false;$("camtools").hidden=false;$("zoomrow").hidden=false;$("toolsBtn").hidden=false;$("recBtn").hidden=false;
   if(isDemo){
@@ -1506,10 +1519,9 @@ async function startStream(s,isDemo){
 function setupZoom(){
   let caps={};try{caps=track.getCapabilities?track.getCapabilities():{}}catch(e){}
   const z=$("zoom");
-  if(caps.zoom&&caps.zoom.max>caps.zoom.min){
-    hwZoom={min:caps.zoom.min,max:Math.min(caps.zoom.max,10),step:caps.zoom.step||0.1};
-    z.min=hwZoom.min;z.max=hwZoom.max;z.step=hwZoom.step;
-  }else{hwZoom=null;z.min=1;z.max=5;z.step=0.1}
+  // la caméra reste à 1× : le zoom est fait par l'appli dans l'image haute résolution
+  if(caps.zoom&&caps.zoom.max>caps.zoom.min)try{track.applyConstraints({advanced:[{zoom:Math.max(1,caps.zoom.min)}]}).catch(()=>{})}catch(e){}
+  hwZoom=null;z.min=1;z.max=4;z.step=0.1;
   zoomVal=Math.min(Math.max(zoomVal,+z.min),+z.max);z.value=zoomVal;
 }
 let zTimer=null;
@@ -1749,11 +1761,19 @@ const det={
   capF(key){ // copie pleine résolution de la zone de la cible (pour trouver la pointe au pixel près)
     if(!this.bw||video.readyState<2)return;const sc=Math.min(1,1600/Math.max(this.bw,this.bh)),w=Math.max(16,Math.round(this.bw*sc)),h=Math.max(16,Math.round(this.bh*sc));
     let o=this[key];if(!o||o.w!==w||o.h!==h){const c=document.createElement("canvas");c.width=w;c.height=h;o=this[key]={c,x:c.getContext("2d",{willReadFrequently:true}),w,h,sc}}
-    try{o.x.drawImage(this.vs(),this.bx+this.off[0],this.by+this.off[1],this.bw,this.bh,0,0,w,h);o.ok=true}catch(e){o.ok=false}},
-  snapV(){ // une seule lecture de l'image caméra par étape : suivi, alignement et capture en sont tirés
-    this.vfOk=false;if(!vw||!vh)return;if(!this.vfc||this.vfc.width!==vw||this.vfc.height!==vh){this.vfc=document.createElement("canvas");this.vfc.width=vw;this.vfc.height=vh;this.vfx=this.vfc.getContext("2d",{willReadFrequently:true})}
-    try{this.vfx.drawImage(video,0,0);this.vfOk=true}catch(e){}},
-  vs(){return this.vfOk?this.vfc:video},
+    try{this.vdraw(o.x,this.bx+this.off[0],this.by+this.off[1],this.bw,this.bh,0,0,w,h);o.ok=true}catch(e){o.ok=false}},
+  snapV(){ // une seule lecture de l'image caméra par étape (zone de la cible + marge de suivi) : suivi, alignement et capture en sont tirés
+    this.vfOk=false;if(!vw||!vh||!this.bw||vw*vh<=2.2e6||window.__noSnap)return; // utile seulement au-delà de la Full HD (4K)
+    const mg=this.bw*.3,x0=Math.max(0,Math.floor(this.bx+this.off[0]-mg)),y0=Math.max(0,Math.floor(this.by+this.off[1]-mg)),
+      x1=Math.min(vw,Math.ceil(this.bx+this.off[0]+this.bw+mg)),y1=Math.min(vh,Math.ceil(this.by+this.off[1]+this.bh+mg));
+    if(x1-x0<16||y1-y0<16)return;const sc=Math.min(1,2400/Math.max(x1-x0,y1-y0)),w=Math.round((x1-x0)*sc),h=Math.round((y1-y0)*sc);
+    if(!this.vfc||this.vfc.width!==w||this.vfc.height!==h){this.vfc=document.createElement("canvas");this.vfc.width=w;this.vfc.height=h;this.vfx=this.vfc.getContext("2d",{willReadFrequently:true})}
+    try{this.vfx.drawImage(video,x0,y0,x1-x0,y1-y0,0,0,w,h);this.vf={x:x0,y:y0,s:w/(x1-x0),w:x1-x0,h:y1-y0};this.vfOk=true}catch(e){}},
+  // dessine une zone de l'image caméra (coordonnées vidéo) : depuis la lecture de l'étape si elle la contient, sinon depuis la vidéo
+  vdraw(ctx,sx,sy,sw,sh,dx,dy,dw,dh){const f=this.vf;
+    if(this.vfOk&&sx>=f.x-.5&&sy>=f.y-.5&&sx+sw<=f.x+f.w+.5&&sy+sh<=f.y+f.h+.5)ctx.drawImage(this.vfc,(sx-f.x)*f.s,(sy-f.y)*f.s,sw*f.s,sh*f.s,dx,dy,dw,dh);
+    else ctx.drawImage(video,sx,sy,sw,sh,dx,dy,dw,dh)},
+  grabV(ctx,sx,sy,sw,sh,w,h){ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);this.vdraw(ctx,sx,sy,sw,sh,0,0,w,h);return ctx.getImageData(0,0,w,h).data},
   recal(){ // recalage fin automatique pendant la partie, quand rien ne bouge (toutes les ~8 s)
     const now=performance.now();if(demo||!calib||now-(this.lastRecal||0)<8000)return;this.lastRecal=now;
     if(this.ref&&!this.boardOK(this.ref)){this.lostBoard=(this.lostBoard||0)+1;if(this.lostBoard>=2){this.lostBoard=0;autoCal.start("Cible perdue : je la recherche…")}return}
@@ -1768,7 +1788,7 @@ const det={
   grad(g,w,h){const o=new Float32Array(w*h);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;o[i]=Math.abs(g[i+1]-g[i-1])+Math.abs(g[i+w]-g[i-w])}return o},
   track(){
     const ts=this.TW/this.bw,mgv=this.MG/ts;
-    const d=this.grabTo(this.tctx,this.vs(),this.bx+this.off[0]-mgv,this.by+this.off[1]-mgv,this.bw+2*mgv,this.bh+2*mgv,this.EW,this.EH);
+    const d=this.grabV(this.tctx,this.bx+this.off[0]-mgv,this.by+this.off[1]-mgv,this.bw+2*mgv,this.bh+2*mgv,this.EW,this.EH);
     const E=this.grad(this.gray(d,this.EW*this.EH),this.EW,this.EH),T=this.tpl,TW=this.TW,TH=this.TH,EW=this.EW,MG=this.MG;
     const sad=(dx,dy)=>{let s=0;for(let y=2;y<TH-2;y+=2){const ro=(y+MG+dy)*EW+MG+dx,rt=y*TW;for(let x=2;x<TW-2;x+=2){const v=E[ro+x]-T[rt+x];s+=v<0?-v:v}}return s};
     const Rr=MG-2;let b2=1e18,fx=0,fy=0;
@@ -1800,7 +1820,7 @@ const det={
     if(!this.refG)return;
     const W=this.PW,Hh=this.PH,M=4,FW=W+2*M,FH=Hh+2*M,sp=W/this.bw,mv=M/sp;
     if(!this.fctx||this.fctx.canvas.width!==FW||this.fctx.canvas.height!==FH){const c=document.createElement("canvas");c.width=FW;c.height=FH;this.fctx=c.getContext("2d",{willReadFrequently:true})}
-    const d=this.grabTo(this.fctx,this.vs(),this.bx+this.off[0]-mv,this.by+this.off[1]-mv,this.bw+2*mv,this.bh+2*mv,FW,FH);
+    const d=this.grabV(this.fctx,this.bx+this.off[0]-mv,this.by+this.off[1]-mv,this.bw+2*mv,this.bh+2*mv,FW,FH);
     const G=this.grad(this.gray(d,FW*FH),FW,FH),T=this.refG,m=this.mask;
     const sad=(dx,dy)=>{let s=0;for(let y=2;y<Hh-2;y+=3){const ro=(y+M+dy)*FW+M+dx,rt=y*W;for(let x=2+(y&1);x<W-2;x+=3){if(!m[rt+x])continue;const v=G[ro+x]-T[rt+x];s+=v<0?-v:v}}return s};
     const Rf=M-1,memo=new Map(),S=(dx,dy)=>{const k=dx*16+dy;let v=memo.get(k);if(v===undefined){v=sad(dx,dy);memo.set(k,v)}return v};
@@ -1838,12 +1858,15 @@ const det={
     this.lostN=0;
     // téléphone qui bouge : rien n'est compté ; une fois immobile, on vérifie la cible avant de reprendre
     {const po=this.stepOff||this.off.slice(),jump=Math.hypot(this.off[0]-po[0],this.off[1]-po[1]);this.stepOff=this.off.slice();
-      if(jump>Math.max(3,this.bw*.004)){this.moving=true;this.moveN=0;this.prev=null;this.emaN=0;setStatus("Téléphone en mouvement : rien n'est compté","busy");return}
-      if(this.moving){if(++this.moveN<8){this.prev=null;return}this.moving=false;this.afterMove=true}}
+      // un léger tremblement est compensé par le suivi : seul un vrai déplacement (1 % de la cible) suspend le comptage
+      const now=Date.now();
+      if(jump>Math.max(5,this.bw*.01)){if(!this.moving)this.moveT0=now;this.moving=true;this.moveN=0;this.prev=null;this.emaN=0;setStatus("Téléphone en mouvement : rien n'est compté","busy");
+        if(now-this.moveT0>4000){this.moving=false;this.moveT0=0;autoCal.start("Le téléphone bouge beaucoup : je recadre la cible…")}return}
+      if(this.moving){if(++this.moveN<4){this.prev=null;if(now-this.moveT0>4000){this.moving=false;autoCal.start("Je recadre la cible…")}return}this.moving=false;this.afterMove=true}}
     this.fine();
     // une seule capture pleine résolution : l'image de travail (basse résolution) en est tirée, les deux correspondent toujours au même instant
     this.capF("frameF");const FF=this.frameF;this.pushRing();
-    const cur=FF&&FF.ok?this.grabTo(this.ctx,FF.c,0,0,FF.w,FF.h,this.PW,this.PH):this.grabTo(this.ctx,this.vs(),this.bx+this.off[0],this.by+this.off[1],this.bw,this.bh,this.PW,this.PH);
+    const cur=FF&&FF.ok?this.grabTo(this.ctx,FF.c,0,0,FF.w,FF.h,this.PW,this.PH):this.grabV(this.ctx,this.bx+this.off[0],this.by+this.off[1],this.bw,this.bh,this.PW,this.PH);
     const N=this.PW*this.PH;
     {const kx=this.PW/this.bw,ky=this.PH/this.bh,mg=8;this.vb=[Math.ceil((mg-this.bx-this.off[0])*kx),Math.floor((vw-mg-this.bx-this.off[0])*kx),Math.ceil((mg-this.by-this.off[1])*ky),Math.floor((vh-mg-this.by-this.off[1])*ky)]}
     if(!this.ref){this.setRef(cur);this.empty=cur;this.prev=cur;this.nz=new Float32Array(N).fill(3);this.learn=0;return}
@@ -1882,6 +1905,8 @@ const det={
     this.lastCR=big;
     if(big>0||hand||!idle||cR>=minP*.5)this.emaN=0; // quelque chose bouge : la moyenne glissante repart de l'image actuelle
     if(hand)this.handSeen=Date.now();
+    if(this.pendingRemoval&&this.pendT&&Date.now()-this.pendT>8000&&this.phase==="attente"){ // retrait jamais vu : l'image actuelle devient la référence
+      this.pendingRemoval=false;this.pendT=0;this.setRef(cur);this.empty=cur;this.prev=cur;setStatus("Prêt : en attente d'une fléchette","on");return}
     if(this.settleUntil&&Date.now()<this.settleUntil){ // juste après un retrait : la main s'éloigne, l'image de la cible vide se reconstruit
       if((big>=minP*.5||hand)&&Date.now()-this.settleT0<4000)this.settleUntil=Date.now()+500;
       this.setRef(cur);this.empty=cur;this.phase="attente";this.seenN=0;this.idleN=0;this.handSeen=0;return}
@@ -2389,7 +2414,7 @@ if(NATIVE)setTimeout(()=>UPD.check(false),4000); // vérification discrète au d
 
 // banc d'essai de la détection (adresse avec ?banc) : rien n'est chargé en temps normal
 if(/[?&]banc\b/.test(location.search)){
-  window.__fl={startStream:s=>startStream(s,false),get game(){return game},det,scoreAt,lab,R,ORDER,settings,newGame,applyZoom,
+  window.__fl={get Hi(){return Hi},applyH,startStream:s=>startStream(s,false),get game(){return game},det,scoreAt,lab,R,ORDER,settings,newGame,applyZoom,
     ready:()=>!autoCal.on&&!!H&&!!det.ctx};
   const sc=document.createElement("script");sc.src="banc.js";document.body.append(sc);
 }
