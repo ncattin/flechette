@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Labo IA</title>
+<style>
+:root{--bg:#0A0A0A;--fg:#F4EEE1;--mut:#A8A296;--acc:#E3242B;--ok:#1E9E55}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,sans-serif;padding:16px}
+h1{font-size:1.3rem;margin:0 0 8px}p{color:var(--mut);margin:4px 0 12px}
+#res{font-variant-numeric:tabular-nums;white-space:pre-wrap;background:#161514;border-radius:10px;padding:12px}
+.grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}canvas{border-radius:6px}
+</style></head><body>
+<h1>Labo IA : réseau « pointe de fléchette »</h1>
+<p>Fait tourner le modèle dans le navigateur (comme dans l'appli) sur des exemples générés, et mesure précision et vitesse. Vert : vraie pointe. Rouge : pointe trouvée par le réseau.</p>
+<div id="res">Chargement…</div><div class="grid" id="grid"></div>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<script src="gen.js"></script>
+<script>
+(async()=>{
+const res=document.getElementById("res"),grid=document.getElementById("grid"),S=192,HM=48,log=t=>res.textContent=t;
+const Q=new URLSearchParams(location.search),N=+(Q.get("n")||60),model=Q.get("m")||"tipnet.onnx";
+try{
+  ort.env.wasm.numThreads=1;
+  const t0=performance.now(),sess=await ort.InferenceSession.create(model,{executionProviders:["wasm"]});const tl=performance.now()-t0;
+  const samples=genBatch(N,4242),imgData=url=>new Promise(r=>{const im=new Image();im.onload=()=>{const c=document.createElement("canvas");c.width=c.height=S;const x=c.getContext("2d");x.drawImage(im,0,0);r({c,d:x.getImageData(0,0,S,S).data})};im.src=url});
+  const errs=[],times=[];
+  for(const s of samples){
+    const a=await imgData(s.before),b=await imgData(s.after),inp=new Float32Array(6*S*S);
+    for(let i=0;i<S*S;i++)for(let k=0;k<3;k++){inp[k*S*S+i]=a.d[i*4+k]/255;inp[(3+k)*S*S+i]=b.d[i*4+k]/255}
+    const t1=performance.now(),out=await sess.run({paire:new ort.Tensor("float32",inp,[1,6,S,S])});times.push(performance.now()-t1);
+    const h=out.carte.data;let mx=-1e9;for(const v of h)if(v>mx)mx=v;let sw=0,sx=0,sy=0;
+    for(let y=0;y<HM;y++)for(let x=0;x<HM;x++){const w=Math.exp(h[y*HM+x]-mx);sw+=w;sx+=w*(x+.5);sy+=w*(y+.5)}
+    const px=sx/sw*S/HM,py=sy/sw*S/HM,e=Math.hypot(px-s.tip[0],py-s.tip[1]);errs.push(e);
+    if(grid.children.length<24){const c=b.c,x=c.getContext("2d");x.lineWidth=2;x.strokeStyle="#0f0";x.beginPath();x.arc(s.tip[0],s.tip[1],5,0,7);x.stroke();
+      x.strokeStyle="#f22";x.beginPath();x.arc(px,py,5,0,7);x.stroke();x.fillStyle="#fff";x.font="12px sans-serif";x.fillText(e.toFixed(1)+" px",4,14);grid.append(c)}
+  }
+  const so=errs.slice().sort((a,b)=>a-b),q=p=>so[Math.floor(so.length*p)],ts=times.slice(2).sort((a,b)=>a-b);
+  const r={exemples:N,erreur_mediane_px:+q(.5).toFixed(2),p90_px:+q(.9).toFixed(2),sous_2px:Math.round(100*so.filter(e=>e<2).length/N)+" %",sous_4px:Math.round(100*so.filter(e=>e<4).length/N)+" %",
+    chargement_ms:Math.round(tl),inference_mediane_ms:+ts[ts.length>>1].toFixed(1)};
+  window.__labo=r;log(JSON.stringify(r,null,1));
+}catch(e){log("Erreur : "+(e&&e.message||e));window.__labo={erreur:String(e)}}
+})();
+</script></body></html>
