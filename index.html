@@ -669,7 +669,7 @@ h1 .mark{background:
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v4";
+const VER="v5";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -856,8 +856,7 @@ const NATIVE=(()=>{const C=window.Capacitor;if(!C||!C.isNativePlatform||!C.isNat
   return{Plugins:{TextToSpeech:reg("TextToSpeech"),Share:reg("Share"),Filesystem:reg("Filesystem"),App:reg("App"),WebView:(window.capacitorExports&&window.capacitorExports.WebView)||reg("WebView")}}})();
 if(NATIVE)document.documentElement.classList.add("native");
 const voice={v:null,en:false,ok:"speechSynthesis" in window,primed:false,
-  nsay(t,cut,lg){const T=NATIVE.Plugins.TextToSpeech;const go=()=>T.speak({text:t,lang:lg||"fr-FR",rate:1.05,category:"playback",queueStrategy:1}).catch(()=>{});
-    if(cut)T.stop().catch(()=>{}).then(go);else go()},
+  nsay(t,cut,lg){const T=NATIVE.Plugins.TextToSpeech;T.speak({text:t,lang:lg||"fr-FR",rate:1.15,category:"playback",queueStrategy:cut?0:1}).catch(()=>{})},
   pick(){if(!this.ok)return;const vs=speechSynthesis.getVoices();
     this.v=vs.find(v=>/^fr[-_]FR/i.test(v.lang)&&/google|thomas|amélie|amelie|audrey|marie/i.test(v.name))||vs.find(v=>/^fr[-_]FR/i.test(v.lang))||vs.find(v=>/^fr/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;
     this.en=!!(this.v&&/^en/i.test(this.v.lang))},
@@ -866,9 +865,9 @@ const voice={v:null,en:false,ok:"speechSynthesis" in window,primed:false,
     if(LANG!=="fr"&&settings.voice){const t=(LANG==="en"?(en||fr):frToEs(fr)).replace(/Joueur (\d+)/g,LANG==="en"?"Player $1":"Jugador $1"),lg=LANG==="en"?"en-GB":"es-ES";
       if(NATIVE){this.nsay(t,cut,lg);return}if(!this.ok)return;
       try{if(cut)speechSynthesis.cancel();const vs=speechSynthesis.getVoices(),v=vs.find(x=>x.lang.toLowerCase().startsWith(LANG)),u=new SpeechSynthesisUtterance(t);
-        if(v){u.voice=v;u.lang=v.lang}else u.lang=lg;u.rate=1.05;speechSynthesis.speak(u)}catch(e){}return}
+        if(v){u.voice=v;u.lang=v.lang}else u.lang=lg;u.rate=1.15;speechSynthesis.speak(u)}catch(e){}return}
     if(NATIVE&&settings.voice){this.nsay(fr,cut);return}if(!this.ok||!settings.voice)return;try{if(!this.v)this.pick();if(cut)speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(this.en?(en||fr):fr);if(this.v){u.voice=this.v;u.lang=this.v.lang}else u.lang="fr-FR";u.rate=1.05;speechSynthesis.speak(u)}catch(e){}},
+    const u=new SpeechSynthesisUtterance(this.en?(en||fr):fr);if(this.v){u.voice=this.v;u.lang=this.v.lang}else u.lang="fr-FR";u.rate=1.15;speechSynthesis.speak(u)}catch(e){}},
   dart(d){
     if(d.num===0)return d.out?["Zéro","Zero"]:["Raté","Miss"];
     if(d.num===25)return d.mult===2?["Bull","Bullseye"]:["25","25"];
@@ -889,7 +888,7 @@ function announce(d,corr){
   else if(game.turn.length>=3){fr+=". Total "+ev.sum;en+=". Total "+ev.sum}
   else if(game.mode!=="free"&&ev.rem>0&&ev.rem<=180&&game.turn.length<3){fr+=". Reste "+ev.rem;en+=". "+ev.rem+" left";
     const pth=ev.rem<=120?finishPath(ev.rem,3-game.turn.length,settings.out):null;if(pth){fr+=" : "+sayPath(pth);en+=": "+sayPathEn(pth)}}
-  voice.say(fr,en,corr);
+  voice.say(fr,en,true);
 }
 
 /* ---------- game ---------- */
