@@ -646,7 +646,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v32";
+const VER="v33";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -1983,6 +1983,13 @@ const det={
     // moyenne glissante des images calmes (bruit du capteur réduit), calculée par la carte graphique : sert d'image de référence
     const e=this.emaF;if(!this.emaN||!e||e.w!==F.w||e.h!==F.h){this.copyF(F,"emaF");this.emaN=1}
     else{this.emaN++;e.x.globalAlpha=1/Math.min(4,this.emaN);e.x.drawImage(F.c,0,0);e.x.globalAlpha=1}},
+  // même chose pour l'image de travail : moyenne des 3 dernières images quand tout est calme (le grain de la caméra ne passe plus pour une fléchette)
+  pushLR(cur){const R=this.lrR||(this.lrR=[]);if(R.length&&R[0].length!==cur.length)R.length=0;R.unshift(cur);if(R.length>3)R.length=3;
+    const Hs=this.lrH||(this.lrH=[]),now=performance.now();if(Hs.length&&Hs[0].a.length!==cur.length)Hs.length=0;Hs.unshift({t:now,a:cur});while(Hs.length>2&&now-Hs[Hs.length-2].t>=150)Hs.pop()},
+  // image d'il y a au moins 120 ms (pour voir qu'une fléchette vibre encore, quel que soit le rythme des images)
+  oldLR(){const Hs=this.lrH;if(!Hs||Hs.length<2)return this.prev;const now=Hs[0].t;for(let k=1;k<Hs.length;k++)if(now-Hs[k].t>=120)return Hs[k].a;return Hs[Hs.length-1].a},
+  lrAvg(cur){const R=this.lrR;if(window.__noLR||!R||R.length<3||R[0]!==cur)return cur;const a=R[0],b=R[1],c=R[2],o=new Uint8ClampedArray(a.length);
+    for(let j=0;j<o.length;j++)o[j]=(a[j]+b[j]+c[j]+1)/3;return o},
   avgF(still){ // moyenne des 3 dernières images (bruit de la caméra réduit) quand l'image est stable ; mélange fait par la carte graphique
     const L=this.frameF;if(!still||!L||!L.ok||(this.ringN||0)<3)return L;
     const R=[this.ring0,this.ring1,this.ring2].filter(o=>o&&o.ok&&o.w===L.w&&o.h===L.h);if(R.length<2)return L;
@@ -2099,7 +2106,7 @@ const det={
     // une seule capture pleine résolution : l'image de travail (basse résolution) en est tirée, les deux correspondent toujours au même instant
     this.capF("frameF");const FF=this.frameF;this.pushRing();
     const cur=FF&&FF.ok?this.grabTo(this.ctx,FF.c,0,0,FF.w,FF.h,this.PW,this.PH):this.grabV(this.ctx,this.bx+this.off[0],this.by+this.off[1],this.bw,this.bh,this.PW,this.PH);
-    const N=this.PW*this.PH;
+    const N=this.PW*this.PH;this.pushLR(cur);
     {const kx=this.PW/this.bw,ky=this.PH/this.bh,mg=8;this.vb=[Math.ceil((mg-this.bx-this.off[0])*kx),Math.floor((vw-mg-this.bx-this.off[0])*kx),Math.ceil((mg-this.by-this.off[1])*ky),Math.floor((vh-mg-this.by-this.off[1])*ky)]}
     if(!this.ref){this.setRef(cur);this.empty=cur;this.prev=cur;this.nz=new Float32Array(N).fill(3);this.learn=0;return}
     if(this.afterMove&&this.ref){this.afterMove=false; // retour au calme après un mouvement
@@ -2113,7 +2120,7 @@ const det={
     const learnNz=(skip)=>{const nz=this.nz,p=this.prev,fast=this.learn>0;
       for(let i=0,j=0;i<N;i++,j+=4){if(!m[i]||(skip&&skip[i]))continue;const d=this.diff(cur,p,j);nz[i]=d>nz[i]?nz[i]*(fast?.4:.8)+d*(fast?.6:.2):nz[i]*.985+d*.015}};
     if(this.learn>0){learnNz(null);this.learn--;this.prev=cur;this.setRef(cur);this.empty=cur;if(!this.learn)setStatus("Prêt : en attente d'une fléchette","on");else setStatus("Calibrage du bruit de l'image…","busy");return}
-    const rA=this.norm(this.ref,cur),pA=this.norm(this.prev,cur);
+    const rA=this.norm(this.ref,cur),pA=this.norm(idle?this.prev:this.oldLR(),cur);
     // (une main devant la cible n'est pas un mouvement du téléphone : la logique « main » s'en charge, avec le retrait des fléchettes)
     if(!this.bin||this.bin.length!==N){this.bin=new Uint8Array(N);this.binP=new Uint8Array(N)}
     const bin=this.bin,binP=this.binP;let cR=0,cP=0;
@@ -2147,14 +2154,17 @@ const det={
     if(idle){
       if(hand){this.seenN=0;this.phase="analyse";this.stable=0;this.settleT=Date.now();setStatus("Main devant la cible…","busy")}
       else if(big>=minP){this.seenN=(this.seenN||0)+1;if(this.seenN>=2){this.phase="analyse";this.stable=0;this.settleT=Date.now();this.seenN=0;setStatus("Analyse…","busy")}}
-      else{this.seenN=0;this.idleN=(this.idleN||0)+1;
-        if(this.idleN>=4){this.idleN=0;this.setRef(cur);if(!game.turn.length&&!this.pendingRemoval&&!this.removing)this.empty=cur;this.recal()}}
+      else{this.seenN=0;this.idleN=(this.idleN||0)+1;const nowI=Date.now();
+        // nouvelle référence seulement après 300 ms de calme réel (compter les étapes ne suffisait pas : leur rythme varie avec la vitesse du téléphone, et une fléchette floue à son arrivée était avalée par la référence)
+        if(big>=minP*.4||!this.calmT0)this.calmT0=nowI;
+        if(this.idleN>=4&&(nowI-this.calmT0>=300||this.idleN>=90)){this.idleN=0;this.calmT0=nowI;this.setRef(cur);if(!game.turn.length&&!this.pendingRemoval&&!this.removing)this.empty=cur;this.recal()}}
     }else{
       let bigP=0;if(cP>=minP*.5){const cs=this.blobs(binP,minP*.4);bigP=cs.length?cs[0].n:0}
       this.lastCP=bigP;
-      this.stable=bigP<minP*.6?this.stable+1:0;
+      if(bigP<minP*.6){if(!this.stable)this.stT0=Date.now();this.stable++}else this.stable=0;
       const el=Date.now()-this.settleT;
-      if(this.stable>=2||el>2500){this.phase="attente";this.analyze(cur,cR,minP,t)}
+      // fléchette immobile depuis au moins 200 ms, comparée à l'image d'il y a 120 ms : une fléchette qui vibre encore n'est pas analysée
+      if((this.stable>=2&&Date.now()-this.stT0>=200)||el>2500){this.phase="attente";this.analyze(this.stable>=2?this.lrAvg(cur):cur,cR,minP,t)}
     }
     if(this.removing&&Date.now()-this.removing>8000)this.removing=0;
   },
