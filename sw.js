@@ -1,5 +1,5 @@
 // Fléchette : toujours la dernière version en ligne ; la copie locale ne sert que sans réseau.
-const CACHE="flechette-v30";
+const CACHE="flechette-v31";
 const SHELL=["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","apple-touch-icon.png"];
 self.addEventListener("install",e=>{e.waitUntil((async()=>{
   try{const c=await caches.open(CACHE);await c.addAll(SHELL)}catch(err){} // hors ligne dès la première visite

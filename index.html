@@ -646,7 +646,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v30";
+const VER="v31";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -2602,13 +2602,15 @@ setLang(LANG);
 // La dernière version d'index.html est téléchargée depuis le dépôt, enregistrée dans le téléphone,
 // puis l'appli redémarre dessus (même adresse : partie en cours, joueurs et réglages gardés).
 const UPD={
+  // sécurité : une version dont le code ne se lit pas (erreur de syntaxe) n'est jamais installée
+  valid(html){try{const re=/<script>([\s\S]*?)<\/script>/g;let m,n=0;while((m=re.exec(html))){new Function(m[1]);n++}return n>0}catch(e){console.warn("mise à jour refusée : code illisible",e);return false}},
   num:v=>{const m=/v(\d+)/.exec(v||"");return m?+m[1]:0},
   async fetchLatest(){
     const srcs=["https://api.github.com/repos/ncattin/flechette/contents/index.html?ref=main",
       "https://raw.githubusercontent.com/ncattin/flechette/main/index.html?t="+Date.now()];
     for(const u of srcs){try{const r=await fetch(u,{cache:"no-store",headers:u.includes("api.github")?{Accept:"application/vnd.github.raw"}:{}});
       if(!r.ok)continue;const html=await r.text(),m=/const VER="(v\d+)"/.exec(html);
-      if(html.length>50000&&/<\/html>\s*$/.test(html))return{ver:m?m[1]:"v0",html}}catch(e){}} // sans numéro : ancienne version
+      if(html.length>50000&&/<\/html>\s*$/.test(html)&&this.valid(html))return{ver:m?m[1]:"v0",html}}catch(e){}} // sans numéro : ancienne version
     return null},
   async check(manual){
     const b=$("updBtn");if(manual&&b){b.disabled=true;b.textContent="Recherche…"}
