@@ -669,7 +669,7 @@ h1 .mark{background:
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v2";
+const VER="v3";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -1690,7 +1690,7 @@ const rec={on:false,mr:null,chunks:[],c:null,x:null,t0:0,last:0,
     const c0=this.region(),W=Math.round(Math.min(1600,c0.sw)),Hv=Math.round(W*c0.sh/c0.sw),B=Math.max(48,Math.round(W*.07));
     this.c=document.createElement("canvas");this.c.width=W;this.c.height=Hv+B;this.x=this.c.getContext("2d");this.Hv=Hv;this.B=B;this.frame();
     const types=["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm","video/mp4"],type=types.find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
-    try{this.mr=new MediaRecorder(this.c.captureStream(20),type?{mimeType:type,videoBitsPerSecond:6000000}:{videoBitsPerSecond:6000000}) // qualité suffisante pour réentraîner le réseau}catch(e){setMsg("Enregistrement vidéo impossible : "+e.name,"red");return}
+    try{this.mr=new MediaRecorder(this.c.captureStream(20),type?{mimeType:type,videoBitsPerSecond:6000000}:{videoBitsPerSecond:6000000})/* qualité suffisante pour réentraîner le réseau */}catch(e){setMsg("Enregistrement vidéo impossible : "+e.name,"red");return}
     this.reg=null;this.region();this.chunks=[];this.mr.ondataavailable=e=>{if(e.data&&e.data.size)this.chunks.push(e.data)};this.mr.onstop=()=>this.save();
     this.mr.start(1000);this.on=true;this.t0=performance.now();$("recBtn").setAttribute("aria-pressed","true");setMsg("Enregistrement en cours : joue normalement, touche REC pour arrêter","");
     clearTimeout(this.cap);this.cap=setTimeout(()=>{if(this.on){this.stop();setMsg("Enregistrement arrêté après 15 minutes","")}},15*60000);
@@ -2706,13 +2706,15 @@ setLang(LANG);
 // La dernière version d'index.html est téléchargée depuis le dépôt, enregistrée dans le téléphone,
 // puis l'appli redémarre dessus (même adresse : partie en cours, joueurs et réglages gardés).
 const UPD={
+  // sécurité : une version dont le code ne se lit pas (erreur de syntaxe) n'est jamais installée
+  valid(html){try{const re=/<script>([\s\S]*?)<\/script>/g;let m,n=0;while((m=re.exec(html))){new Function(m[1]);n++}return n>0}catch(e){console.warn("mise à jour refusée : code illisible",e);return false}},
   num:v=>{const m=/v(\d+)/.exec(v||"");return m?+m[1]:0},
   async fetchLatest(){
     const srcs=["https://api.github.com/repos/ncattin/flechette/contents/index.html?ref=ia",
       "https://raw.githubusercontent.com/ncattin/flechette/ia/index.html?t="+Date.now()];
     for(const u of srcs){try{const r=await fetch(u,{cache:"no-store",headers:u.includes("api.github")?{Accept:"application/vnd.github.raw"}:{}});
       if(!r.ok)continue;const html=await r.text(),m=/const VER="(v\d+)"/.exec(html);
-      if(html.length>50000&&/<\/html>\s*$/.test(html))return{ver:m?m[1]:"v0",html}}catch(e){}} // sans numéro : ancienne version
+      if(html.length>50000&&/<\/html>\s*$/.test(html)&&this.valid(html))return{ver:m?m[1]:"v0",html}}catch(e){}} // sans numéro : ancienne version
     return null},
   async check(manual){
     const b=$("updBtn");if(manual&&b){b.disabled=true;b.textContent="Recherche…"}
@@ -2752,10 +2754,10 @@ UPD.afterStart();
 if(NATIVE)setTimeout(()=>UPD.check(false),4000); // vérification discrète au démarrage
 
 // banc d'essai de la détection (adresse avec ?banc) : rien n'est chargé en temps normal
-if(/[?&]banc\b/.test(location.search)){
+if(/[?&](banc|rejeu)\b/.test(location.search)){
   window.__fl={get Hi(){return Hi},applyH,startStream:s=>startStream(s,false),get game(){return game},det,scoreAt,lab,R,ORDER,settings,newGame,applyZoom,
     ready:()=>!autoCal.on&&!!H&&!!det.ctx};
-  const sc=document.createElement("script");sc.src="banc.js";document.body.append(sc);
+  const sc=document.createElement("script");sc.src=/[?&]rejeu=/.test(location.search)?"rejeu.js":"banc.js";document.body.append(sc);
 }
 })();
 </script>
