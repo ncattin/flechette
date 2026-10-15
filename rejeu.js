@@ -18,7 +18,7 @@ v.addEventListener("ended",()=>{log.push(t()+" fin de la vidéo");shot("fin");do
 (async()=>{
   FL.settings.mode="501";FL.newGame();
   await new Promise(r=>v.addEventListener("loadeddata",r,{once:true}));
-  await v.play();
+  v.playbackRate=1/(window.__SLOW||1);await v.play();
   await FL.startStream(v.captureStream());
   // une image du repérage dès que la cible est trouvée
   const w=setInterval(()=>{if(FL.ready()){clearInterval(w);setTimeout(()=>shot("cible trouvée"),500)}},200);
