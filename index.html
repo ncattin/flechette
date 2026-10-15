@@ -457,6 +457,8 @@ h1 .mark{background:
 .btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent2))}
 .camoff .target{filter:hue-rotate(185deg) saturate(1.2)}
 .nninfo{color:var(--accent)}
+.iabox{display:flex;gap:12px;align-items:center}
+.iabox canvas{width:150px;height:150px;border-radius:10px;flex:none;touch-action:none;box-shadow:0 0 0 1px var(--line)}
 </style>
 </head>
 <body>
@@ -560,6 +562,10 @@ h1 .mark{background:
 <div class="sheet" id="keySheet" role="dialog" aria-modal="true" aria-labelledby="keyTitle">
   <div class="panel">
     <h2 id="keyTitle">Fléchette</h2>
+    <div class="iabox" id="iaBox" hidden>
+      <canvas id="iaCan" width="192" height="192" aria-label="Zone de la fléchette : touche la vraie pointe"></canvas>
+      <p class="lab small" id="iaTxt">Touche la vraie pointe pour apprendre au réseau ta cible. Rouge : réseau, blanc : méthode classique.</p>
+    </div>
     <div class="seg" id="multSeg">
       <button data-m="1" aria-pressed="true">Simple</button>
       <button data-m="2" aria-pressed="false">Double</button>
@@ -607,6 +613,11 @@ h1 .mark{background:
       <p class="lab small" id="camRes">Caméra : pas encore activée</p>
       <p class="lab small" id="viewInfo"></p>
       <p class="lab small nninfo" id="nnInfo">Réseau de neurones : chargement…</p>
+      <div class="field"><span class="lab">Qui trouve la pointe ?</span>
+        <div class="seg" id="nnSeg"><button data-v="reseau">Réseau</button><button data-v="mixte">Mixte</button><button data-v="classique">Classique</button></div>
+        <span class="lab small">Mixte : la méthode classique décide, le réseau la remplace seulement si elle s'est trompée de beaucoup.</span></div>
+      <div class="field"><span class="lab">Exemples pour entraîner le réseau sur ta cible : quand tu corriges une fléchette, touche sa vraie pointe sur l'image.</span>
+        <button class="btn" id="iaShare">Envoyer les exemples pour l'IA (0)</button></div>
       <div class="field"><label for="sens">Sensibilité <span id="sensVal"></span></label><input type="range" id="sens" min="1" max="10" step="1">
         <span class="lab small">Plus haut : les fléchettes fines ou lointaines sont mieux vues, mais une ombre peut compter. Plus bas : l'inverse.</span></div>
       <div class="field"><span class="lab">À chaque correction d'une fléchette mal comptée, une image est gardée. Envoie-les pour faire progresser la détection.</span>
@@ -658,7 +669,7 @@ h1 .mark{background:
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v1";
+const VER="v2";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -751,6 +762,10 @@ const I18N={
 "Image floue : essuie l'objectif, ou touche l'image pour faire la mise au point":["Blurry image: wipe the lens, or tap the image to focus","Imagen borrosa: limpia el objetivo o toca la imagen para enfocar"],
 "Image sombre : allume la lumière près de la cible":["Dark image: turn on a light near the board","Imagen oscura: enciende una luz cerca de la diana"],
 "Réseau de neurones : actif":["Neural network: on","Red neuronal: activa"],"Réseau de neurones : chargement…":["Neural network: loading…","Red neuronal: cargando…"],"Réseau de neurones : désactivé":["Neural network: off","Red neuronal: desactivada"],"Réseau de neurones : indisponible, méthode classique utilisée":["Neural network unavailable, classic method used","Red neuronal no disponible, se usa el método clásico"],
+"Qui trouve la pointe ?":["Who finds the tip?","¿Quién encuentra la punta?"],"Réseau":["Network","Red"],"Mixte":["Mixed","Mixto"],"Classique":["Classic","Clásico"],
+"Mixte : la méthode classique décide, le réseau la remplace seulement si elle s'est trompée de beaucoup.":["Mixed: the classic method decides, the network only replaces it when it is far off.","Mixto: decide el método clásico; la red solo lo sustituye si se ha equivocado mucho."],
+"Exemples pour entraîner le réseau sur ta cible : quand tu corriges une fléchette, touche sa vraie pointe sur l'image.":["Examples to train the network on your board: when you fix a dart, tap its real tip on the image.","Ejemplos para entrenar la red con tu diana: al corregir un dardo, toca su punta real en la imagen."],
+"Touche la vraie pointe pour apprendre au réseau ta cible. Rouge : réseau, blanc : méthode classique.":["Tap the real tip to teach the network your board. Red: network, white: classic method.","Toca la punta real para enseñar tu diana a la red. Rojo: red, blanco: método clásico."],
 "Joueur 1":["Player 1","Jugador 1"],"Joueur 2":["Player 2","Jugador 2"],"Joueur":["Player","Jugador"]};
 // phrases avec un nom ou un nombre : [modèle, anglais, espagnol] ($1, $2… = parties variables, elles-mêmes traduites si besoin)
 const I18P=[
@@ -788,7 +803,8 @@ const I18P=[
 [/^Moyenne par partie, de ([\d.]+) à ([\d.]+)$/,"Average per game, from $1 to $2","Media por partida, de $1 a $2"],
 [/^(\d\d\/\d\d) · (.+) · moyenne ([\d.]+)$/,"$1 · $2 · average $3","$1 · $2 · media $3"],
 [/^(.+) \(non finie\)( · [\d.]+)?$/,"$1 (unfinished)$2","$1 (sin terminar)$2"],
-[/^(.+) : (\d) sur 3$/,"$1: $2 of 3","$1: $2 de 3"],[/^Joueur (\d+)$/,"Player $1","Jugador $1"],[/^Réseau de neurones : actif \((\d+) ms par fléchette\)$/,"Neural network: on ($1 ms per dart)","Red neuronal: activa ($1 ms por dardo)"],
+[/^(.+) : (\d) sur 3$/,"$1: $2 of 3","$1: $2 de 3"],[/^Joueur (\d+)$/,"Player $1","Jugador $1"],[/^Envoyer les exemples pour l'IA \((\d+)\)$/,"Send examples for the AI ($1)","Enviar ejemplos para la IA ($1)"],
+[/^Merci : exemple gardé \((\d+)\)\. Tu peux corriger le score ci-dessous\.$/,"Thanks: example kept ($1). You can fix the score below.","Gracias: ejemplo guardado ($1). Puedes corregir la puntuación abajo."],[/^Réseau de neurones : actif \((\d+) ms par fléchette\)$/,"Neural network: on ($1 ms per dart)","Red neuronal: activa ($1 ms por dardo)"],
 [/^Netteté bonne \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness good ($1) · board $2 px · light $3","Nitidez buena ($1) · diana $2 px · luz $3"],
 [/^Netteté moyenne \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness medium ($1) · board $2 px · light $3","Nitidez media ($1) · diana $2 px · luz $3"],
 [/^Netteté faible \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness low ($1) · board $2 px · light $3","Nitidez baja ($1) · diana $2 px · luz $3"]];
@@ -1218,6 +1234,7 @@ function openKeys(i){
   $("multSeg").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.m==="1"));
   $("keyTitle").textContent=i<game.turn.length?"Fléchette "+(i+1)+" : "+lab(game.turn[i])+", corriger en…":"Ajouter la fléchette "+(i+1);
   $("delDart").hidden=!(i<game.turn.length);
+  IA.show(i<game.turn.length?game.turn[i]:null);
   showSheet("keySheet");
 }
 const errLog=[],diagLog=[];
@@ -1670,10 +1687,10 @@ const rec={on:false,mr:null,chunks:[],c:null,x:null,t0:0,last:0,
   start(){
     if(!window.MediaRecorder||!view.captureStream&&!HTMLCanvasElement.prototype.captureStream){setMsg("Enregistrement vidéo impossible sur ce navigateur","red");return}
     // image brute de la caméra (sans cercles ni chiffres), cadrée sur la cible, pour pouvoir la rejouer telle quelle
-    const c0=this.region(),W=Math.round(Math.min(1280,c0.sw)),Hv=Math.round(W*c0.sh/c0.sw),B=Math.max(48,Math.round(W*.07));
+    const c0=this.region(),W=Math.round(Math.min(1600,c0.sw)),Hv=Math.round(W*c0.sh/c0.sw),B=Math.max(48,Math.round(W*.07));
     this.c=document.createElement("canvas");this.c.width=W;this.c.height=Hv+B;this.x=this.c.getContext("2d");this.Hv=Hv;this.B=B;this.frame();
     const types=["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm","video/mp4"],type=types.find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
-    try{this.mr=new MediaRecorder(this.c.captureStream(15),type?{mimeType:type,videoBitsPerSecond:3500000}:{videoBitsPerSecond:3500000})}catch(e){setMsg("Enregistrement vidéo impossible : "+e.name,"red");return}
+    try{this.mr=new MediaRecorder(this.c.captureStream(20),type?{mimeType:type,videoBitsPerSecond:6000000}:{videoBitsPerSecond:6000000}) // qualité suffisante pour réentraîner le réseau}catch(e){setMsg("Enregistrement vidéo impossible : "+e.name,"red");return}
     this.reg=null;this.region();this.chunks=[];this.mr.ondataavailable=e=>{if(e.data&&e.data.size)this.chunks.push(e.data)};this.mr.onstop=()=>this.save();
     this.mr.start(1000);this.on=true;this.t0=performance.now();$("recBtn").setAttribute("aria-pressed","true");setMsg("Enregistrement en cours : joue normalement, touche REC pour arrêter","");
     clearTimeout(this.cap);this.cap=setTimeout(()=>{if(this.on){this.stop();setMsg("Enregistrement arrêté après 15 minutes","")}},15*60000);
@@ -1924,7 +1941,7 @@ $("autoBtn").onclick=()=>{if(vw)autoCal.start()};
 /* ---------- réseau de neurones « pointe de fléchette » (expérimental, branche ia) ---------- */
 // Activé par ?nn dans l'adresse. Le réseau reçoit l'image avant et l'image après autour de la nouvelle
 // fléchette et renvoie une carte dont le maximum est la pointe.
-const NN={sess:null,on:!/[?&]nonn\b/.test(location.search),ms:0,minConf:+((location.search.match(/[?&]nnconf=([\d.]+)/)||[])[1]||0),agree:+((location.search.match(/[?&]nnagree=([\d.]+)/)||[])[1]||0),S:192,HM:48,
+const NN={sess:null,on:!/[?&]nonn\b/.test(location.search),ms:0,minConf:+((location.search.match(/[?&]nnconf=([\d.]+)/)||[])[1]||0),agree:0,S:192,HM:48,
   ready(){return!!this.sess},
   info(){const e=document.getElementById("nnInfo");if(e)e.textContent=this.sess?"Réseau de neurones : actif"+(this.ms?" ("+this.ms+" ms par fléchette)":""):this.err?"Réseau de neurones : indisponible, méthode classique utilisée":this.on?"Réseau de neurones : chargement…":"Réseau de neurones : désactivé";},
   async load(){if(!this.on||this.sess||this.loading)return;this.loading=true;
@@ -1937,7 +1954,39 @@ const NN={sess:null,on:!/[?&]nonn\b/.test(location.search),ms:0,minConf:+((locat
     let sw=0,sx=0,sy=0;for(let y=0;y<HM;y++)for(let x=0;x<HM;x++){const w=Math.exp(h[y*HM+x]-mx);sw+=w;sx+=w*(x+.5);sy+=w*(y+.5)}
     return{x:sx/sw*S/HM,y:sy/sw*S/HM,conf:1/sw}} // conf = poids du maximum (1 = carte très piquée)
 };
+// mode choisi dans Partie > Détection : seuil de désaccord (mm) au-delà duquel la pointe du réseau remplace la classique
+const NNMODES={reseau:0,mixte:15,classique:1e9};
+function nnMode(){const m=(location.search.match(/[?&]nnagree=([\d.]+)/)||[])[1];if(m!=null){NN.agree=+m;return}NN.agree=NNMODES[settings.nnMode||"mixte"]??15}
+nnMode();
 NN.load().then(()=>NN.info());
+/* ---------- exemples réels pour réentraîner le réseau ---------- */
+// Chaque fléchette détectée garde ses deux découpes (avant / après). Quand le joueur touche la vraie pointe,
+// l'exemple (images + position) est mis de côté ; « Envoyer les exemples » les partage pour l'entraînement.
+const IA={crops:new Map(),n:0,ex:[],cur:null,
+  keep(j,r,cls){const id=++this.n;this.crops.set(id,{a:j.a,b:j.b,pred:[r.x,r.y],cls});if(this.crops.size>40)this.crops.delete(this.crops.keys().next().value);return id},
+  show(d){const box=$("iaBox"),c=d&&d.cid&&this.crops.get(d.cid);this.cur=c?{d,c}:null;box.hidden=!c;if(!c)return;
+    $("iaTxt").textContent="Touche la vraie pointe pour apprendre au réseau ta cible. Rouge : réseau, blanc : méthode classique.";this.draw(null)},
+  draw(lab){const{c}=this.cur,x=$("iaCan").getContext("2d");x.drawImage(c.b,0,0);
+    const mark=(p,col,r)=>{x.strokeStyle=col;x.lineWidth=2;x.beginPath();x.arc(p[0],p[1],r,0,7);x.stroke()};
+    mark(c.cls,"#fff",5);mark(c.pred,"#F0384A",7);if(lab){mark(lab,"#22D3EE",4);x.beginPath();x.moveTo(lab[0]-8,lab[1]);x.lineTo(lab[0]+8,lab[1]);x.moveTo(lab[0],lab[1]-8);x.lineTo(lab[0],lab[1]+8);x.stroke()}},
+  label(ev){if(!this.cur)return;const r=$("iaCan").getBoundingClientRect(),lab=[(ev.clientX-r.left)*192/r.width,(ev.clientY-r.top)*192/r.height],{d,c}=this.cur;
+    const e={a:c.a.toDataURL("image/jpeg",.92),b:c.b.toDataURL("image/jpeg",.92),tip:lab.map(v=>+v.toFixed(1)),pred:c.pred.map(v=>+v.toFixed(1)),cls:c.cls.map(v=>+v.toFixed(1)),vu:lab0(d)};
+    if(c.saved!=null)this.ex[c.saved]=e;else{c.saved=this.ex.length;this.ex.push(e)}
+    this.draw(lab);$("iaTxt").textContent="Merci : exemple gardé ("+this.ex.length+"). Tu peux corriger le score ci-dessous.";this.upd()},
+  upd(){const b=$("iaShare");if(b){b.textContent="Envoyer les exemples pour l'IA ("+this.ex.length+")";b.disabled=!this.ex.length}},
+  async share(){if(!this.ex.length)return;const files=[],labels=[];
+    for(const[i,e]of this.ex.entries()){const id="reel_"+String(i).padStart(4,"0");
+      for(const[k,u]of[["a",e.a],["b",e.b]]){const bl=await(await fetch(u)).blob();files.push(new File([bl],id+"_"+k+".jpg",{type:"image/jpeg"}))}
+      labels.push({id,tip:e.tip,pred:e.pred,cls:e.cls,vu:e.vu})}
+    files.push(new File([JSON.stringify(labels)],"labels-reels.json",{type:"application/json"}));
+    await shareFiles(files,"Exemples pour l'IA de Pointe")}
+};
+function lab0(d){try{return lab(d)}catch(e){return""}}
+$("iaCan").addEventListener("pointerdown",ev=>IA.label(ev));
+$("iaShare").onclick=()=>IA.share();
+$("nnSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{settings.nnMode=b.dataset.v;save("fl_settings",settings);nnMode();
+  $("nnSeg").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+setTimeout(()=>{IA.upd();$("nnSeg").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===(settings.nnMode||"mixte")))},0);
 /* ---------- detector (with hand-held stabilisation) ---------- */
 const det={
   enabled:true,debug:false,pendingRemoval:false,PW:0,PH:0,bx:0,by:0,bw:1,bh:1,ctx:null,mask:null,maskN:0,
@@ -2334,6 +2383,7 @@ const det={
       const jobs=qs.map(q=>this.nnCrop(q));this.nnBusy=true;
       Promise.all(jobs.map(j=>j?NN.tip(j.a,j.b).catch(()=>null):null)).then(rs=>{
         rs.forEach((r,i)=>{const j=jobs[i];if(!r||!j)return;const q=qs[i];q.nn={x:r.x,y:r.y,conf:r.conf,from:[q.tx,q.ty]};
+          q.cid=IA.keep(j,r,[(q.tx-j.x0)/j.k,(q.ty-j.y0)/j.k]);
           // accord à quelques mm : la pointe fine de la méthode actuelle est gardée ; désaccord : elle s'est trompée, on prend celle du réseau
           if(r.conf>=NN.minConf){const x=j.x0+r.x*j.k,y=j.y0+r.y*j.k,v=this.p2v(x+.5,y+.5),b=applyH(H,v[0],v[1]);q.nn.d=Math.hypot(b[0]-q.bx,b[1]-q.by);
             if(q.nn.d>NN.agree)Object.assign(q,{tx:x,ty:y,vx:v[0],vy:v[1],bx:b[0],by:b[1]})}});
@@ -2356,7 +2406,7 @@ const det={
       if(locked())break;
       if(game.turn.some(o=>o.b&&Math.hypot(o.b[0]-bx,o.b[1]-by)<2.5))continue;
       const d=scoreAt(bx,by);d.auto=true;{const w=nearWire(bx,by);if(w){d.alt=w.alt;d.altD=w.d}}d.pt=[vx,vy];d.b=[bx,by];d.pp=[tx,ty];d.tl=tl?[tl[0],tl[1]]:null;if(tr)d.dbg=Object.assign({nk},tr);try{this.snapDiag(d)}catch(e){}d.bp=c.pix.filter((p,k)=>k%Math.max(1,Math.floor(c.n/160))===0);(this.pixOf||(this.pixOf=new WeakMap())).set(d,c.pix);
-      if(q.nn)d.nn=q.nn;
+      if(q.nn)d.nn=q.nn;if(q.cid)d.cid=q.cid;
       if(addDart(d)){hits++;flashDart(game.turn.length-1);setStatus("Touché : "+lab(d)+" ("+d.value+")","hit");
         if(d.alt&&!locked())setMsg("Sur un fil : "+lab(d)+" ou "+lab(d.alt)+" ? Touche « ou "+lab(d.alt)+" » si besoin","")}
     }
