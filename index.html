@@ -646,7 +646,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v31";
+const VER="v32";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -776,9 +776,10 @@ const I18P=[
 [/^(\d\d\/\d\d) · (.+) · moyenne ([\d.]+)$/,"$1 · $2 · average $3","$1 · $2 · media $3"],
 [/^(.+) \(non finie\)( · [\d.]+)?$/,"$1 (unfinished)$2","$1 (sin terminar)$2"],
 [/^(.+) : (\d) sur 3$/,"$1: $2 of 3","$1: $2 de 3"],[/^Joueur (\d+)$/,"Player $1","Jugador $1"],
-[/^Netteté bonne \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness good ($1) · board $2 px · light $3","Nitidez buena ($1) · diana $2 px · luz $3"],
-[/^Netteté moyenne \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness medium ($1) · board $2 px · light $3","Nitidez media ($1) · diana $2 px · luz $3"],
-[/^Netteté faible \((\d+)\) · cible (\d+) px · lumière (\d+)$/,"Sharpness low ($1) · board $2 px · light $3","Nitidez baja ($1) · diana $2 px · luz $3"]];
+[/^Netteté bonne \((\d+)\) · cible (\d+) px · lumière (\d+) · caméra (.*)$/,"Sharpness good ($1) · board $2 px · light $3 · camera $4","Nitidez buena ($1) · diana $2 px · luz $3 · cámara $4"],
+[/^Netteté moyenne \((\d+)\) · cible (\d+) px · lumière (\d+) · caméra (.*)$/,"Sharpness medium ($1) · board $2 px · light $3 · camera $4","Nitidez media ($1) · diana $2 px · luz $3 · cámara $4"],
+[/^Netteté faible \((\d+)\) · cible (\d+) px · lumière (\d+) · caméra (.*)$/,"Sharpness low ($1) · board $2 px · light $3 · camera $4","Nitidez baja ($1) · diana $2 px · luz $3 · cámara $4"],
+[/^La cible est trop petite à l'image \(([\d.]+) px par mm\) : rapproche le téléphone pour qu'elle remplisse l'écran$/,"The board is too small in the image ($1 px per mm): move the phone closer so it fills the screen","La diana se ve demasiado pequeña ($1 px por mm): acerca el teléfono para que llene la pantalla"]];
 function tr(s){
   if(LANG==="fr"||s==null)return s;const t=String(s).trim();if(!t)return s;const k=LANG==="en"?0:1;
   const lead=String(s).match(/^\s*/)[0],trail=String(s).match(/\s*$/)[0];
@@ -1871,13 +1872,14 @@ function checkView(tries){ // appelée après le repérage de la cible : conseil
     const a=applyH(Hi,-170,0),b=applyH(Hi,170,0),radPx=Math.hypot(b[0]-a[0],b[1]-a[1])/2;viewQ=Object.assign(q,{radPx:Math.round(radPx)});
     const tips=[];
     if(q.sharp<SHARP_BAD)tips.push("Image floue : essuie l'objectif, ou touche l'image pour faire la mise au point");
-    if(radPx<200)tips.push("La cible est petite à l'image : rapproche le téléphone pour plus de précision");
+    if(radPx<260)tips.push("La cible est trop petite à l'image ("+Math.round(radPx/170*10)/10+" px par mm) : rapproche le téléphone pour qu'elle remplisse l'écran");
     if(q.lum<55)tips.push("Image sombre : allume la lumière près de la cible");
     $("viewInfo").textContent=viewTxt();
     if(q.sharp>=SHARP_OK)lockCam();else{refocus();if((tries||0)<3)checkView((tries||0)+1)}
     if(tips.length)setMsg(tips[0],"red");
   },(tries?2000:1800))}
-function viewTxt(){if(!viewQ)return"";return "Netteté "+(viewQ.sharp>=SHARP_OK?"bonne":viewQ.sharp>=SHARP_BAD?"moyenne":"faible")+" ("+viewQ.sharp+") · cible "+(viewQ.radPx*2)+" px · lumière "+viewQ.lum}
+function camRes(){let t="caméra "+vw+"×"+vh;try{const c=track&&track.getCapabilities&&track.getCapabilities();if(c&&c.width&&c.width.max)t+=" (max "+c.width.max+"×"+c.height.max+")"}catch(e){}return t}
+function viewTxt(){if(!viewQ)return"";return "Netteté "+(viewQ.sharp>=SHARP_OK?"bonne":viewQ.sharp>=SHARP_BAD?"moyenne":"faible")+" ("+viewQ.sharp+") · cible "+(viewQ.radPx*2)+" px · lumière "+viewQ.lum+" · "+camRes()}
 /* ---------- calibration automatique ---------- */
 const autoCal={on:false,last:null,ctx:null,lastScore:0,
   start(msg){this.on=true;this.last=null;this.lastScore=0;H=Hi=null;det.ctx=null;det.off=[0,0];setStatus(msg||"Recherche de la cible… vise-la","busy")},
