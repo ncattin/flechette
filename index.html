@@ -343,6 +343,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .win p{color:var(--muted)}
 .wstats{display:flex;flex-direction:column;gap:4px;text-align:left}
 .wrow{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:var(--r-sm);font-size:.92rem;color:var(--muted)}
+.wrow .pl{color:var(--accent);font-weight:700;margin-right:8px}
 .wrow span:first-child{color:var(--cream);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wrow.me{background:rgba(227,36,43,.1)}.wrow.me span:first-child{color:var(--accent)}
 @media (prefers-reduced-motion:no-preference){
@@ -638,7 +639,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <div class="big" id="winName"></div>
     <p id="winSub" style="margin:0"></p>
     <div class="wstats" id="winStats"></div>
-    <div class="row"><button class="btn" id="winUndo">Corriger</button><button class="btn go" id="winAgain">Rejouer</button></div>
+    <div class="row"><button class="btn" id="winUndo">Corriger</button><button class="btn" id="winEnd" hidden>Terminer</button><button class="btn go" id="winGo" hidden>Continuer</button><button class="btn go" id="winAgain">Rejouer</button></div>
   </div>
 </div>
 
@@ -646,7 +647,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v35";
+const VER="v36";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -677,7 +678,7 @@ const I18N={
 "À chaque correction d'une fléchette mal comptée, une image est gardée. Envoie-les pour faire progresser la détection.":["Each time you fix a miscounted dart, an image is kept. Send them to improve detection.","Cada vez que corriges un dardo mal contado, se guarda una imagen. Envíalas para mejorar la detección."],
 "Les dernières fléchettes détectées sont gardées en image (avant, après, pointe trouvée).":["The last detected darts are kept as images (before, after, tip found).","Los últimos dardos detectados se guardan como imágenes (antes, después, punta encontrada)."],
 "Caméra : pas encore activée":["Camera: not turned on yet","Cámara: aún no activada"],"Rechercher une mise à jour":["Check for updates","Buscar actualizaciones"],
-"Nouvelle partie":["New game","Nueva partida"],"Effacer l'historique":["Clear history","Borrar el historial"],"Corriger":["Fix","Corregir"],"Rejouer":["Play again","Jugar otra vez"],
+"Nouvelle partie":["New game","Nueva partida"],"Effacer l'historique":["Clear history","Borrar el historial"],"Corriger":["Fix","Corregir"],"Rejouer":["Play again","Jugar otra vez"],"Continuer":["Continue","Continuar"],"Terminer":["End game","Terminar"],"Les autres peuvent continuer pour les places suivantes.":["The others can keep playing for the next places.","Los demás pueden seguir por los siguientes puestos."],
 "Écran normal":["Normal screen","Pantalla normal"],"Grand écran, lisible de loin":["Big screen, readable from afar","Pantalla grande, legible de lejos"],
 "Annuler la dernière action":["Undo last action","Deshacer la última acción"],"Enregistrer la partie en vidéo":["Record the game on video","Grabar la partida en vídeo"],
 "Outils caméra (zoom, détection, cible)":["Camera tools (zoom, detection, board)","Herramientas de cámara (zoom, detección, diana)"],
@@ -759,7 +760,7 @@ const I18P=[
 [/^moy\. ([\d.]+) · (\d+) fléchettes$/,"avg. $1 · $2 darts","media $1 · $2 dardos"],[/^moy\. ([\d.]+)$/,"avg. $1","media $1"],
 [/^([\d.]+) marques\/tour$/,"$1 marks/round","$1 marcas/turno"],[/^(\d+) marques$/,"$1 marks","$1 marcas"],[/^1 marque$/,"1 mark","1 marca"],
 [/^Fin de partie en cricket \((\d+) points\)\.$/,"Cricket game over ($1 points).","Fin de la partida de cricket ($1 puntos)."],
-[/^Fin de partie en (\d+)\.$/,"Game over ($1).","Fin de la partida ($1)."],[/^(.+) gagne$/,"$1 wins","$1 gana"],
+[/^Fin de partie en (\d+)\.$/,"Game over ($1).","Fin de la partida ($1)."],[/^(.+) gagne$/,"$1 wins","$1 gana"],[/^(.+) termine (\d+)(er|e)$/,"$1 finishes #$2","$1 termina $2.º"],[/^(.+) termine !$/,"$1 checks out!","¡$1 cierra!"],[/^reste (\d+) · (.*)$/,"$1 left · $2","quedan $1 · $2"],[/^(\d+)(er|e) · (.*)$/,"#$1 · $3","$1.º · $3"],[/^(\d+)(er|e)$/,"#$1","$1.º"],
 [/^Envoyer les images d'erreurs \((\d+)\)$/,"Send error images ($1)","Enviar imágenes de errores ($1)"],[/^Envoyer le diagnostic \((\d+)\)$/,"Send diagnostics ($1)","Enviar diagnóstico ($1)"],
 [/^Caméra : (\d+) × (\d+) pixels(.*)$/,"Camera: $1 × $2 pixels$3","Cámara: $1 × $2 píxeles$3"],
 [/^L'appli est à jour \((v\d+)\)\.$/,"The app is up to date ($1).","La app está actualizada ($1)."],
@@ -926,28 +927,48 @@ function addDart(d){
   if(locked())return false;
   snap();game.turn.push(d);render();announce(d,false);
   const e=evalTurn();
-  if(e.won)setMsg(game.players[game.cur].name+" termine ! Valide avec Tour suivant","green");
+  if(e.won){setMsg(game.players[game.cur].name+" termine !","green");const g=game;setTimeout(()=>{if(game===g&&!game.over&&evalTurn().won)nextTurn(false)},900)}
   else if(e.bust)setMsg("Bust ! Le score revient à "+game.turnStart,"red");
   else if(game.turn.length>=3)setMsg("Retire les fléchettes pour passer au joueur suivant","");
   return true;
 }
 function nextTurn(auto){
   if(game.over)return;
+  // joueur déjà classé : on attend « Continuer » ou « Terminer » (si l'écran de fin a été fermé autrement, on passe au suivant)
+  if(game.fin&&game.fin.includes(game.cur)){if(!$("winSheet").classList.contains("show"))advance();return}
   snap();
   const e=evalTurn(),p=game.players[game.cur];
   // statistiques : fléchettes lancées et points marqués (marques au cricket) pour la moyenne par volée de 3
   if(game.turn.length)turnStats(p,e);
   if(isCricket())e.ps.forEach((q,i)=>{game.players[i].score=q.score;game.players[i].marks=q.marks});
   else p.score=e.bust?game.turnStart:e.rem;
-  if(e.won){game.over=true;game.winner=game.cur;render();recordGame(true);showWin();return}
   if(!auto&&game.turn.some(d=>d.auto)){det.pendingRemoval=true;det.pendT=Date.now();det.pendPP=game.turn.filter(d=>d.bp).map(d=>d.bp)}
-  game.cur=(game.cur+1)%game.players.length;
+  if(e.won){finishPlayer();return}
+  advance();
+}
+// joueur suivant (ceux qui ont déjà terminé sont sautés)
+function advance(){
+  const fin=game.fin||[];let k=game.cur;do{k=(k+1)%game.players.length}while(fin.includes(k)&&k!==game.cur);game.cur=k;
   game.turnStart=game.players[game.cur].score;game.turn=[];
   render();setMsg("À "+game.players[game.cur].name+" de jouer","");
   const np=game.players[game.cur],x01=game.mode!=="free"&&!isCricket(),rr=np.score;
   if(x01&&rr>0&&rr<=180){const pth=finishPath(rr,3,settings.out),fin=pth&&rr<=120;
     voice.say("À "+np.name+". Il reste "+rr+(fin?". "+sayPath(pth):pth?"":", pas de finish en 3 fléchettes"),np.name+", you require "+rr+(fin?". "+sayPathEn(pth):""))}
   else voice.say("À "+np.name,np.name+" to throw");
+}
+function placeTxt(n){return n===1?"1er":n+"e"}
+// le joueur courant a terminé : à 2 joueurs (ou au cricket) la partie s'arrête ; à 3 ou plus, on peut jouer les places suivantes
+function finishPlayer(){
+  const fin=game.fin||(game.fin=[]);if(!fin.includes(game.cur))fin.push(game.cur);if(!(game.winner>=0))game.winner=game.cur;
+  const rest=game.players.map((_,i)=>i).filter(i=>!fin.includes(i));
+  if(game.players.length<3||isCricket()||rest.length<=1){endGame();return}
+  render();showWin(true);voice.say(game.players[game.cur].name+" termine "+(fin.length===1?"premier":placeTxt(fin.length)),game.players[game.cur].name+" finishes",true);
+}
+// fin de la partie : les joueurs restants sont classés selon leur score (le plus bas d'abord en 501/301)
+function endGame(){
+  const fin=game.fin||(game.fin=[]);
+  game.players.map((p,i)=>i).filter(i=>!fin.includes(i)).sort((a,b)=>isCricket()?game.players[b].score-game.players[a].score:game.players[a].score-game.players[b].score).forEach(i=>fin.push(i));
+  if(!(game.winner>=0))game.winner=fin[0];game.over=true;render();recordGame(true);showWin(false);
 }
 // statistiques du joueur, tour par tour (gardées dans la partie, donc annulables)
 function turnStats(p,e){
@@ -965,7 +986,7 @@ function loadHist(){const h=load("fl_hist",[]);return Array.isArray(h)?h:[]}
 function recordGame(fini){
   if(!game||!game.id)return;const h=loadHist().filter(r=>r.id!==game.id);
   h.push({id:game.id,date:Date.now(),mode:game.mode,out:game.out||settings.out,cut:game.cut,fini,
-    players:game.players.map((p,i)=>({name:p.name,score:p.score,win:fini&&i===game.winner,st:p.st||{}}))});
+    players:game.players.map((p,i)=>({name:p.name,score:p.score,win:fini&&i===game.winner,place:game.fin&&game.fin.indexOf(i)>=0?game.fin.indexOf(i)+1:null,st:p.st||{}}))});
   while(h.length>300)h.shift();save("fl_hist",h);
 }
 let statName=null;
@@ -1034,13 +1055,19 @@ $("langList").querySelectorAll("button").forEach(b=>b.onclick=()=>{setLang(b.dat
   if(settings.voice)voice.say("Annonce vocale activée","Voice on",true)});
 $("statClose").onclick=()=>hideSheet("statSheet");
 $("statClear").onclick=()=>{if(!confirm(tr("Effacer tout l'historique des parties et les statistiques ?")))return;save("fl_hist",[]);renderStats()};
-function showWin(){
-  $("winName").textContent=game.players[game.winner].name+" gagne";
-  $("winSub").textContent=isCricket()?"Fin de partie en cricket ("+game.players[game.winner].score+" points).":"Fin de partie en "+game.mode+".";
+function showWin(partial){
+  if(!(game.winner>=0)){const f0=game.fin&&game.fin[0];game.winner=f0>=0?f0:game.cur} // partie ancienne ou incomplète : jamais de plantage
+  const fin=game.fin||[game.winner],last=game.players[fin[fin.length-1]];
+  $("winName").textContent=partial?last.name+" termine "+placeTxt(fin.length):game.players[game.winner].name+" gagne";
+  $("winSub").textContent=partial?"Les autres peuvent continuer pour les places suivantes.":isCricket()?"Fin de partie en cricket ("+game.players[game.winner].score+" points).":"Fin de partie en "+game.mode+".";
   const ws=$("winStats");ws.innerHTML="";
-  game.players.forEach((p,i)=>{const r=document.createElement("div");r.className="wrow"+(i===game.winner?" me":"");
-    const n=document.createElement("span");n.textContent=p.name;const v=document.createElement("span");
-    v.textContent=(avgTxt(p)||"—")+(p.st&&p.st.d?" · "+p.st.d+" fléchettes":"");r.append(n,v);ws.append(r)});
+  // classement : ceux qui ont terminé dans l'ordre, puis les autres (score restant)
+  const order=fin.concat(game.players.map((_,i)=>i).filter(i=>!fin.includes(i)));
+  order.forEach(i=>{const p=game.players[i],k=fin.indexOf(i);const r=document.createElement("div");r.className="wrow"+(i===game.winner?" me":"");
+    const n=document.createElement("span");if(k>=0){const b=document.createElement("b");b.className="pl";b.textContent=placeTxt(k+1);n.append(b)}n.append(p.name);
+    const v=document.createElement("span");
+    v.textContent=(k<0?"reste "+p.score+" · ":"")+(avgTxt(p)||"—")+(p.st&&p.st.d?" · "+p.st.d+" fléchettes":"");r.append(n,v);ws.append(r)});
+  $("winGo").hidden=$("winEnd").hidden=!partial;$("winAgain").hidden=!!partial;
   showSheet("winSheet");
 }
 
@@ -1079,7 +1106,7 @@ function render(){
     const shown=i===game.cur?evalTurn():null;
     const n=document.createElement("div");n.className="n";n.textContent=p.name;
     const s=document.createElement("div");s.className="s";s.textContent=p.score;
-    const a=document.createElement("div");a.className="avg";a.textContent=avgTxt(p);
+    const a=document.createElement("div");a.className="avg";const pk=(game.fin||[]).indexOf(i);a.textContent=pk>=0?placeTxt(pk+1)+(avgTxt(p)?" · "+avgTxt(p):""):avgTxt(p);
     b.append(n,s,a);b.onclick=()=>openScoreEdit(i);b.setAttribute("aria-label",p.name+" : "+p.score+(a.textContent?", "+a.textContent:"")+". Modifier le total");pl.append(b);
   });
   const e=evalTurn(),p=game.players[game.cur];
@@ -1326,6 +1353,8 @@ $("setClose").onclick=()=>{hideSheet("setSheet");applySettings()};
 $("newGame").onclick=()=>{hideSheet("setSheet");newGame();det.resetRef();setMsg("Nouvelle partie : à "+game.players[0].name,"")};
 $("winAgain").onclick=()=>{hideSheet("winSheet");newGame();det.resetRef()};
 $("winUndo").onclick=()=>undo();
+$("winGo").onclick=()=>{hideSheet("winSheet");if(!game.over&&game.fin&&game.fin.includes(game.cur))advance()};
+$("winEnd").onclick=()=>{hideSheet("winSheet");endGame()};
 $("undoBtn").onclick=undo;
 $("addBtn").onclick=()=>{if(!locked())openKeys(game.turn.length)};
 $("nextBtn").onclick=()=>nextTurn(false);
@@ -2607,7 +2636,7 @@ $("demoBtn").onclick=()=>{voice.prime();
   startStream(C.captureStream(30),true).catch(()=>camFail("La démo n'a pas pu démarrer sur ce navigateur."));
 };
 
-{const sg=loadGame();if(sg&&sg.game&&Array.isArray(sg.game.players)&&sg.game.players.length){game=sg.game;undoStack=sg.undo||[];det.pendingRemoval=false;render();if(game.over)showWin()}else newGame()}
+{const sg=loadGame();if(sg&&sg.game&&Array.isArray(sg.game.players)&&sg.game.players.length){game=sg.game;undoStack=sg.undo||[];det.pendingRemoval=false;render();if(game.over)try{showWin(false)}catch(e){newGame()}}else newGame()}
 setMsg("Prêt : active la caméra ou compte à la main","");
 setLang(LANG);
 /* ---------- mise à jour depuis GitHub (appli Android) ---------- */
@@ -2660,7 +2689,7 @@ if(NATIVE)setTimeout(()=>UPD.check(false),4000); // vérification discrète au d
 // banc d'essai de la détection (adresse avec ?banc) : rien n'est chargé en temps normal
 if(/[?&]banc\b/.test(location.search)){
   window.__fl={get Hi(){return Hi},applyH,startStream:s=>startStream(s,false),get game(){return game},det,scoreAt,lab,R,ORDER,settings,newGame,applyZoom,
-    ready:()=>!autoCal.on&&!!H&&!!det.ctx};
+    ready:()=>!autoCal.on&&!!H&&!!det.ctx,addDart,mk,nextTurn};
   const sc=document.createElement("script");sc.src="banc.js";document.body.append(sc);
 }
 })();
