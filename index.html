@@ -669,7 +669,7 @@ h1 .mark{background:
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v5";
+const VER="v6";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -2249,7 +2249,8 @@ const det={
     const mm2=c.n/(this.mm*this.mm);if(mm2>3000*this.tiltK())return true;
     let e=0;for(const p of c.pix)if(this.isEdge(p)){e++;if(e>=3)break}
     if(e<3||mm2<700)return false;
-    const len=Math.hypot(c.x1-c.x0,c.y1-c.y0)/this.mm+1;return mm2/len>22;
+    // vue de biais : une fléchette paraît plus épaisse (empennage vu de profil) -> seuil d'épaisseur relevé avec l'inclinaison
+    const len=Math.hypot(c.x1-c.x0,c.y1-c.y0)/this.mm+1;return mm2/len>22*Math.sqrt(this.tiltK());
   },
   fresh(c,cur,eA,t){ // part de la tache qui diffère aussi de la cible vide (0 : simple retour à la cible vide)
     if(!eA)return 1;const st=Math.max(1,Math.floor(c.n/240));let k=0,n=0;
