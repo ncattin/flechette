@@ -21,7 +21,9 @@ const POSES={ // position du téléphone (mm) : x à droite, y vers le bas, z de
   dessous:[60,520,560],   // posé sous la cible, incliné vers le haut (cas le plus courant)
   bas:[0,330,820],        // un peu sous la cible, plus loin
   cote:[480,300,700],     // sur le côté
-  face:[0,40,900]         // presque de face
+  face:[0,40,900],        // presque de face
+  droite:[420,0,420],     // trépied à droite, à hauteur de la cible, vue à 45°
+  droite2:[480,-40,320]   // trépied à droite plus près du mur, vue à ~55°
 };
 const C=POSES[POSE]||POSES.dessous;
 const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],nrm=a=>{const l=Math.hypot(...a);return[a[0]/l,a[1]/l,a[2]/l]},
