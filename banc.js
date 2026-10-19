@@ -11,7 +11,7 @@ const Q=new URLSearchParams(location.search);
 // tel : image comme celle d'un vrai téléphone (floue, jaunie, couleurs ternes, bruit fort, 1280x720, main qui tremble, capture d'écran qui secoue)
 const TEL=Q.has("tel");
 const POSE=Q.get("pose")||"dessous",NT=+(Q.get("n")||30),SEED=+(Q.get("seed")||1),SHAKE=+(Q.get("shake")||(TEL?3:1));
-const UHD=Q.has("uhd"),W=UHD?3840:TEL?1280:1920,H=UHD?2160:TEL?720:1080,F=0.82*W,CX=W/2,CY=H/2;
+const MANUEL=Q.has("manuel"),UHD=Q.has("uhd"),W=UHD?3840:TEL?1280:1920,H=UHD?2160:TEL?720:1080,F=0.82*W,CX=W/2,CY=H/2;
 const R=FL.R,ORDER=FL.ORDER;
 let seed=SEED>>>0||1;const rnd=()=>{seed=(seed+0x6D2B79F5)>>>0;let t=seed;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296};
 const gauss=()=>{let u=0,v=0;while(!u)u=rnd();while(!v)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
@@ -202,6 +202,12 @@ async function run(){
     }
     if(TEL){jolt={t:performance.now(),dx:(rnd()-.5)*24,dy:(rnd()-.5)*24,res:true};L("secousse (capture d'écran)")}
     await wait(500);
+    // scénario « manuel » (un tour sur deux) : fléchettes retirées sans que la main soit vue, puis « Tour suivant » touché à la main
+    if(MANUEL&&turnN%2===0){await wait(400);darts=[];L("retrait sans main");await wait(2200);
+      if(FL.game.turn.length){L("tour suivant à la main");FL.nextTurn(false)}await wait(1200);
+      for(const tr of turnTruth)if(!tr.matched&&!tr.bounce)res.push({kind:"manquee",want:tr.label,bx:tr.bx,by:tr.by,bd:boundaryDist(tr.bx,tr.by)});
+      for(const tr of turnTruth)if(tr.bounce)res.push({kind:"rebond",want:tr.label,matched:!!tr.matched,fell:!!tr.fellSeen});
+      status(summary().line);continue}
     // retrait à la main
     const ps=darts.map(D=>proj(D.P(60))).filter(Boolean),mx=ps.length?ps.reduce((a,p)=>a+p[0],0)/ps.length:CX,my=ps.length?ps.reduce((a,p)=>a+p[1],0)/ps.length:CY;
     hand={p:[mx+700,my+500]};expo=-.05;L("main");if(turnN<=3)traceUntil=performance.now()+9000;
