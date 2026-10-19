@@ -669,7 +669,7 @@ h1 .mark{background:
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v6";
+const VER="v7";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -968,7 +968,9 @@ function nextTurn(auto){
   if(isCricket())e.ps.forEach((q,i)=>{game.players[i].score=q.score;game.players[i].marks=q.marks});
   else p.score=e.bust?game.turnStart:e.rem;
   if(e.won){game.over=true;game.winner=game.cur;render();recordGame(true);showWin();return}
-  if(!auto&&game.turn.some(d=>d.auto)){det.pendingRemoval=true;det.pendT=Date.now();det.pendPP=game.turn.filter(d=>d.bp).map(d=>d.bp)}
+  if(!auto&&game.turn.some(d=>d.auto||d.bp)){const pp=game.turn.filter(d=>d.bp).map(d=>d.bp);
+    // déjà retirées (retrait pas vu, puis « Tour suivant » touché) : on n'attend rien, sinon la 1re fléchette du joueur suivant serait avalée
+    if(!pp.length||det.stillThere(pp)){det.pendingRemoval=true;det.pendT=Date.now();det.pendPP=pp}}
   game.cur=(game.cur+1)%game.players.length;
   game.turnStart=game.players[game.cur].score;game.turn=[];
   render();setMsg("À "+game.players[game.cur].name+" de jouer","");
@@ -1276,10 +1278,12 @@ updErr();
 function pick(mult,num){
   const d=mk(mult,num);d.auto=false;
   if(keyIdx<game.turn.length&&game.turn[keyIdx].auto&&lab(game.turn[keyIdx])!==lab(d))captureErr(game.turn[keyIdx],d);
-  if(keyIdx<game.turn.length){snap();d.pt=game.turn[keyIdx].pt;d.b=game.turn[keyIdx].b;game.turn[keyIdx]=d;render();announce(d,true);setMsg("Fléchette corrigée : "+lab(d),"")}
+  if(keyIdx<game.turn.length){snap();const o=game.turn[keyIdx];d.pt=o.pt;d.b=o.b;d.pp=o.pp;d.tl=o.tl;d.bp=o.bp;if(det.pixOf&&det.pixOf.has(o))det.pixOf.set(d,det.pixOf.get(o));
+    game.turn[keyIdx]=d;render();announce(d,true);setMsg("Fléchette corrigée : "+lab(d),"")}
   else addDart(d);
   hideSheet("keySheet");
-  const e=evalTurn();if(e.bust)setMsg("Bust ! Le score revient à "+game.turnStart,"red");else if(e.won)setMsg(game.players[game.cur].name+" termine ! Valide avec Tour suivant","green");
+  const e=evalTurn();if(e.bust)setMsg("Bust ! Le score revient à "+game.turnStart,"red");
+  else if(e.won){setMsg(game.players[game.cur].name+" termine !","green");const g=game;setTimeout(()=>{if(game===g&&!game.over&&evalTurn().won)nextTurn(false)},900)}
 }
 $("delDart").onclick=()=>{if(keyIdx<game.turn.length){captureErr(game.turn[keyIdx],null);snap();game.turn.splice(keyIdx,1);render();setMsg("Fléchette supprimée","")}hideSheet("keySheet")};
 $("keyClose").onclick=()=>hideSheet("keySheet");
@@ -2225,7 +2229,9 @@ const det={
       this.pendingRemoval=false;this.pendT=0;this.setRef(cur);this.empty=cur;this.prev=cur;setStatus("Prêt : en attente d'une fléchette","on");return}
     if(this.settleUntil&&Date.now()<this.settleUntil){ // juste après un retrait : la main s'éloigne, l'image de la cible vide se reconstruit
       if((big>=minP*.5||hand)&&Date.now()-this.settleT0<4000)this.settleUntil=Date.now()+500;
-      this.setRef(cur);this.empty=cur;this.phase="attente";this.seenN=0;this.idleN=0;this.handSeen=0;return}
+      // l'image « cible vide » n'est refaite que si la cible doit vraiment être vide : après « Main retirée, rien compté » les fléchettes sont
+      // encore plantées, et les prendre pour la cible vide empêchait ensuite de voir leur retrait (pas de « joueur suivant »)
+      this.setRef(cur);if(!game.turn.length&&!this.pendingRemoval)this.empty=cur;this.phase="attente";this.seenN=0;this.idleN=0;this.handSeen=0;return}
     if(idle&&!hand&&big<minP&&((this.handSeen&&Date.now()-this.handSeen>300)||((this.removing||this.pendingRemoval||(game.turn.length&&locked()))&&Date.now()-(this.lastChk||0)>1200))){
       this.lastChk=Date.now();this.analyze(cur,cR,minP,t);return}
     if(idle){
@@ -2257,6 +2263,9 @@ const det={
     for(let q=0;q<c.n;q+=st){const j=c.pix[q]*4;n++;if(this.diff(cur,eA,j)>t*1.2&&!this.shadow(cur,eA,j))k++}return n?k/n:1},
   tiltK(){ // vue de biais : une fléchette paraît plus grande
     if(this._tk&&this._tkH===H)return this._tk;const p=H?this.persp(this.PW/2,this.PH/2):null;this._tkH=H;return this._tk=1+1.4*Math.min(1.5,p?p.tanT:0)},
+  stillThere(bps){ // au moins une de ces fléchettes est-elle encore plantée ? (dernière image comparée à la cible vide)
+    if(!this.prev||!this.empty||this.prev.length!==this.empty.length)return true;const cur=this.prev,eA=this.norm(this.empty,cur),t=this.thr();
+    return bps.some(bp=>{let k=0;for(const q of bp)if(this.rdiff(cur,eA,q,q*4,t))k++;return k>=bp.length*.25})},
   isGone(bp,bE){let k=0;for(const p of bp)if(bE[p])k++;return k<bp.length*.25},
   shadow(cur,ref,j){ // pixel simplement assombri (ombre d'une fléchette, du joueur) : même teinte, plus sombre
     const r0=ref[j],g0=ref[j+1],b0=ref[j+2];
@@ -2328,6 +2337,8 @@ const det={
     // les fléchettes de ce tour sont-elles encore plantées ? (on regarde autour de chaque pointe)
     const tips=this.pendingRemoval?(this.pendPP||[]):game.turn.filter(o=>o.bp).map(o=>o.bp);
     const gone=tips.length>0&&tips.every(bp=>this.isGone(bp,bE));
+    if(this.pendingRemoval&&gone&&!hadHand&&bigE>=minP*.8){ // retrait fait, et la 1re fléchette du joueur suivant est déjà là
+      this.pendingRemoval=false;const kF=this.refF;this.setRef(this.empty);this.refF=kF;this.refFpend=false;setStatus("En attente d'une fléchette","on");return}
     // 1) la cible est redevenue vide : fléchettes retirées
     if(bigE<minP*.8||(gone&&(this.removing||this.pendingRemoval||locked()))){
       this.settleT0=Date.now();this.settleUntil=this.settleT0+700;this.setRef(cur);this.empty=cur;const wasRemoving=this.removing;this.removing=0;
@@ -2364,8 +2375,8 @@ const det={
     if(removed&&!added.length){
       this.setRef(cur);
       if(!game.turn.length&&!this.pendingRemoval){this.empty=cur;setStatus("En attente d'une fléchette","on");return}
-      if(this.removing||this.pendingRemoval){setStatus("Retrait des fléchettes…","busy");return}
-      // une fléchette a disparu sans qu'une main passe : elle est tombée -> ratée
+      if(this.removing||this.pendingRemoval||locked()){if(locked()&&!this.removing)this.removing=Date.now();setStatus("Retrait des fléchettes…","busy");return}
+      // une fléchette a disparu sans qu'une main passe (tour pas fini) : elle est tombée -> ratée
       let fell=0;game.turn.forEach((o,i)=>{if(o.auto&&o.bp&&o.num!==0&&this.isGone(o.bp,bE)){if(!fell)snap();game.turn[i]=Object.assign(mk(0,0),{auto:true,fell:true});fell++}});
       if(fell){render();voice.say("Raté, fléchette tombée","Miss, dart fell out",true);setStatus("Fléchette tombée : ratée","hit");return}
       setStatus("En attente d'une fléchette","on");return;
