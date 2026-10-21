@@ -647,7 +647,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v37";
+const VER="v38";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -806,7 +806,7 @@ function setLang(l){LANG=l;try{sessionStorage.setItem("fl_lang",l)}catch(e){}doc
 function frToEs(s){return String(s)
   .replace(/^À (.+?)\. Il reste (\d+)/,"Turno de $1. Quedan $2").replace(/^À (.+)$/,"Turno de $1").replace(/\. Il reste (\d+)/,". Quedan $1")
   .replace(/, pas de finish en 3 fléchettes/,", sin cierre en 3 dardos").replace(/\. Partie gagnée !/,". ¡Partida ganada!")
-  .replace(/\. Reste (\d+)/,". Quedan $1").replace(/^Corrigé : /,"Corregido: ").replace(/\. (\d+) points/,". $1 puntos")
+  .replace(/\. Reste (\d+)/,". Quedan $1").replace(/\. Finish /,". Cierre ").replace(/^Corrigé : /,"Corregido: ").replace(/\. (\d+) points/,". $1 puntos")
   .replace(/\bRaté, fléchette tombée\b/,"Fallo, el dardo ha caído").replace(/^Raté$/,"Fallo").replace(/^Zéro$/,"Cero").replace(/\bRaté\b/,"Fallo")
   .replace(/^Une ratée$/,"Un fallo").replace(/^(\d+) ratées$/,"$1 fallos").replace(/^Annonce vocale activée$/,"Voz activada")
   .replace(/\bdouble (\d+)/gi,"doble $1").replace(/\bDouble (\d+)/g,"Doble $1").replace(/\bbull\b/gi,"diana")}
@@ -860,7 +860,7 @@ function announce(d,corr){
   else if(isCricket()){if(game.turn.length>=3&&ev.sum>0){fr+=". "+ev.sum+" points";en+=". "+ev.sum+" points"}}
   else if(game.turn.length>=3){fr+=". Total "+ev.sum;en+=". Total "+ev.sum}
   else if(game.mode!=="free"&&ev.rem>0&&ev.rem<=180&&game.turn.length<3){fr+=". Reste "+ev.rem;en+=". "+ev.rem+" left";
-    const pth=ev.rem<=120?finishPath(ev.rem,3-game.turn.length,settings.out):null;if(pth){fr+=" : "+sayPath(pth);en+=": "+sayPathEn(pth)}}
+    const pth=ev.rem<=120?finishPath(ev.rem,3-game.turn.length,settings.out):null;if(pth){fr+=". Finish "+sayPath(pth);en+=". Checkout "+sayPathEn(pth)}} // jamais « 17 : 17 », lu comme une heure
   voice.say(fr,en,true);
 }
 
