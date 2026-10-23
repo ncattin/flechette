@@ -346,6 +346,10 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .startlist{display:flex;flex-direction:column;gap:8px;margin:6px 0}
 .startlist button{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);background:var(--night);color:var(--cream);border-radius:var(--r-sm);padding:14px 16px;font:inherit;font-weight:600;font-size:1.05rem;text-align:left}
 .startlist button[aria-pressed=true]{border-color:var(--green);background:rgba(31,138,76,.16);box-shadow:inset 0 0 0 1px var(--green)}
+.startlist:empty::before{content:attr(data-empty);color:var(--faint);font-size:.9rem}
+.startlist .srow{display:flex;gap:6px}.startlist .srow>button:first-child{flex:1}
+.startlist .srow .rm{flex:none;padding:0 14px;color:var(--faint)}
+.startlist button .num{color:var(--accent);font-weight:800;margin-right:10px}
 .startlist button .tag{font-size:.8rem;color:var(--green);font-weight:700}
 .bigbtn{width:100%;padding:16px;font-size:1.1rem;font-weight:700;margin-top:4px}
 .wstats{display:flex;flex-direction:column;gap:4px;text-align:left}
@@ -464,6 +468,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <button class="iconbtn sq flag" id="langBtn" aria-label="Langue : Français"><svg viewBox="0 0 3 2" aria-hidden="true"><rect width="1" height="2" fill="#0055A4"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg></button>
     <button class="iconbtn sq" id="farBtn" aria-label="Grand écran, lisible de loin" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     <button class="iconbtn sq" id="openStats" aria-label="Statistiques"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></button>
+    <button class="iconbtn sq" id="newBtn" aria-label="Nouvelle partie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
     <button class="iconbtn" id="openSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Partie</button>
     </div>
   </header>
@@ -647,9 +652,16 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <!-- win -->
 <div class="sheet" id="startSheet" role="dialog" aria-modal="true" aria-labelledby="startTitle">
   <div class="panel start">
-    <h2 id="startTitle">Qui commence ?</h2>
-    <p class="lab" id="startSub"></p>
-    <div class="startlist" id="startList"></div>
+    <h2 id="startTitle">Nouvelle partie</h2>
+    <div class="field"><span class="lab">Jeu</span>
+      <div class="seg" id="stMode"><button data-v="301">301</button><button data-v="501">501</button><button data-v="701">701</button><button data-v="cricket">Cricket</button><button data-v="free">Libre</button></div></div>
+    <div class="field" id="stOutRow"><span class="lab">Sortie</span>
+      <div class="seg" id="stOut"><button data-v="simple">Simple</button><button data-v="double">Double</button><button data-v="triple">Triple</button></div></div>
+    <div class="field"><span class="lab" id="stPlLab">Joueurs</span>
+      <div class="startlist" id="stPlayers" data-empty="Personne pour l'instant : choisis des joueurs ci-dessous ou crée-les."></div></div>
+    <div class="field"><span class="lab">Joueurs enregistrés : touche pour ajouter</span>
+      <div class="chips" id="stRoster" data-empty="Aucun joueur enregistré : crée le premier ci-dessous."></div>
+      <div class="prow"><input type="text" id="stNew" maxlength="16" placeholder="Nouveau joueur" aria-label="Prénom du nouveau joueur" autocomplete="off" autocapitalize="words" enterkeyhint="done"><button class="create" id="stAdd">Créer</button></div></div>
     <div class="row"><button class="btn" id="startRand">Tirage au sort</button><button class="btn" id="startSet">Réglages</button></div>
     <button class="btn go bigbtn" id="startGo">Commencer la partie</button>
   </div>
@@ -667,7 +679,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v39";
+const VER="v40";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -698,7 +710,7 @@ const I18N={
 "À chaque correction d'une fléchette mal comptée, une image est gardée. Envoie-les pour faire progresser la détection.":["Each time you fix a miscounted dart, an image is kept. Send them to improve detection.","Cada vez que corriges un dardo mal contado, se guarda una imagen. Envíalas para mejorar la detección."],
 "Les dernières fléchettes détectées sont gardées en image (avant, après, pointe trouvée).":["The last detected darts are kept as images (before, after, tip found).","Los últimos dardos detectados se guardan como imágenes (antes, después, punta encontrada)."],
 "Caméra : pas encore activée":["Camera: not turned on yet","Cámara: aún no activada"],"Rechercher une mise à jour":["Check for updates","Buscar actualizaciones"],
-"Nouvelle partie":["New game","Nueva partida"],"Effacer l'historique":["Clear history","Borrar el historial"],"Corriger":["Fix","Corregir"],"Qui commence ?":["Who throws first?","¿Quién empieza?"],"Tirage au sort":["Coin toss","Sorteo"],"Commencer la partie":["Start the game","Empezar la partida"],"commence":["first","empieza"],"Voix des annonces":["Announcer voice","Voz de los anuncios"],"Voix normale":["Normal voice","Voz normal"],"Écouter":["Listen","Escuchar"],"Voix par défaut du téléphone":["Phone default voice","Voz predeterminada del teléfono"],"Autres langues":["Other languages","Otros idiomas"],"Hauteur :":["Pitch:","Tono:"],"Vitesse :":["Speed:","Velocidad:"],"Rejouer":["Play again","Jugar otra vez"],"Continuer":["Continue","Continuar"],"Terminer":["End game","Terminar"],"Les autres peuvent continuer pour les places suivantes.":["The others can keep playing for the next places.","Los demás pueden seguir por los siguientes puestos."],
+"Nouvelle partie":["New game","Nueva partida"],"Effacer l'historique":["Clear history","Borrar el historial"],"Corriger":["Fix","Corregir"],"Qui commence ?":["Who throws first?","¿Quién empieza?"],"Arrêter la partie en cours et en préparer une nouvelle ?":["Stop the current game and set up a new one?","¿Parar la partida actual y preparar una nueva?"],"Sortie":["Checkout","Salida"],"Joueurs":["Players","Jugadores"],"Joueurs : touche celui qui commence":["Players: tap who throws first","Jugadores: toca quién empieza"],"Joueurs enregistrés : touche pour ajouter":["Saved players: tap to add","Jugadores guardados: toca para añadir"],"Créer":["Create","Crear"],"Nouveau joueur":["New player","Nuevo jugador"],"Réglages":["Settings","Ajustes"],"Tirage au sort":["Coin toss","Sorteo"],"Commencer la partie":["Start the game","Empezar la partida"],"commence":["first","empieza"],"Voix des annonces":["Announcer voice","Voz de los anuncios"],"Voix normale":["Normal voice","Voz normal"],"Écouter":["Listen","Escuchar"],"Voix par défaut du téléphone":["Phone default voice","Voz predeterminada del teléfono"],"Autres langues":["Other languages","Otros idiomas"],"Hauteur :":["Pitch:","Tono:"],"Vitesse :":["Speed:","Velocidad:"],"Rejouer":["Play again","Jugar otra vez"],"Continuer":["Continue","Continuar"],"Terminer":["End game","Terminar"],"Les autres peuvent continuer pour les places suivantes.":["The others can keep playing for the next places.","Los demás pueden seguir por los siguientes puestos."],
 "Écran normal":["Normal screen","Pantalla normal"],"Grand écran, lisible de loin":["Big screen, readable from afar","Pantalla grande, legible de lejos"],
 "Annuler la dernière action":["Undo last action","Deshacer la última acción"],"Enregistrer la partie en vidéo":["Record the game on video","Grabar la partida en vídeo"],
 "Outils caméra (zoom, détection, cible)":["Camera tools (zoom, detection, board)","Herramientas de cámara (zoom, detección, diana)"],
@@ -886,8 +898,8 @@ function voiceLabel(v){const m=/^([a-z]{2,3})-([a-z]{2,3})-x-([a-z]+)-(local|net
   if(m)return v.lang+" · voix "+m[3].toUpperCase()+(m[4]==="network"?" (en ligne)":"");return v.name+(v.lang&&!v.name.includes(v.lang)?" · "+v.lang:"")}
 async function fillVoices(){const sel=$("voiceSel");if(!sel)return;const L=await voices.load(),lg=LANG==="en"?"en":LANG==="es"?"es":"fr";
   sel.innerHTML="";const o0=document.createElement("option");o0.value="";o0.textContent="Voix par défaut du téléphone";sel.append(o0);
-  const mine=L.filter(v=>v.lang.toLowerCase().startsWith(lg)),other=L.filter(v=>!v.lang.toLowerCase().startsWith(lg));
-  for(const[g,arr]of[[null,mine],["Autres langues",other]]){if(!arr.length)continue;const par=g?Object.assign(document.createElement("optgroup"),{label:g}):sel;
+  const mine=L.filter(v=>v.lang.toLowerCase().startsWith(lg)); // seulement les voix de la langue de l'appli
+  for(const[g,arr]of[[null,mine]]){if(!arr.length)continue;const par=g?Object.assign(document.createElement("optgroup"),{label:g}):sel;
     arr.slice().sort((a,b)=>voiceLabel(a).localeCompare(voiceLabel(b))).forEach(v=>{const o=document.createElement("option");o.value=v.name;o.textContent=voiceLabel(v);par.append(o)});if(g)sel.append(par)}
   sel.value=(settings.voices||{})[LANG]||"";if(sel.value!==((settings.voices||{})[LANG]||""))sel.value="";
   $("pitchR").value=vPitch();$("rateR").value=vRate();$("pitchV").textContent=vPitch().toFixed(2);$("rateV").textContent=vRate().toFixed(2)}
@@ -999,18 +1011,36 @@ function advance(){
     voice.say("À "+np.name+". Il reste "+rr+(fin?". "+sayPath(pth):pth?"":", pas de finish en 3 fléchettes"),np.name+", you require "+rr+(fin?". "+sayPathEn(pth):""))}
   else voice.say("À "+np.name,np.name+" to throw");
 }
-// « Qui commence ? » : à l'ouverture de l'appli, et à chaque nouvelle partie
-let startPick=0;
-function askStart(){
-  if(!game||gameStarted())return;
-  startPick=Math.min(startPick,game.players.length-1);
-  $("startSub").textContent=(isCricket()?"Cricket":game.mode==="free"?"Jeu libre":game.mode+" · "+(OUTS[settings.out]||settings.out))+" · "+game.players.length+" joueur"+(game.players.length>1?"s":"");
-  const L=$("startList");L.innerHTML="";
-  game.players.forEach((p,i)=>{const b=document.createElement("button");b.type="button";b.setAttribute("aria-pressed",i===startPick);
-    const n=document.createElement("span");n.textContent=p.name;const t=document.createElement("span");t.className="tag";t.textContent=i===startPick?"commence":"";
-    b.append(n,t);b.onclick=()=>{startPick=i;askStart()};L.append(b)});
-  showSheet("startSheet");
+// page « Nouvelle partie » : jeu, sortie, joueurs (enregistrés ou créés sur place, gardés en mémoire) et qui commence
+let stSel=[],startPick=0,stMode="501",stOut="simple";
+function askStart(prefill){
+  stSel=prefill?game.players.map(p=>p.name).filter(n=>n&&!/^Joueur \d+$/.test(n)):[];startPick=0;stMode=settings.mode;stOut=settings.out;
+  renderStart();showSheet("startSheet");
 }
+function renderStart(){
+  $("stMode").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===stMode));
+  $("stOut").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===stOut));$("stOutRow").hidden=stMode==="cricket"||stMode==="free";
+  startPick=Math.max(0,Math.min(startPick,stSel.length-1));
+  $("stPlLab").textContent=stSel.length>1?"Joueurs : touche celui qui commence":"Joueurs";
+  const L=$("stPlayers");L.innerHTML="";
+  stSel.forEach((n,i)=>{const r=document.createElement("div");r.className="srow";
+    const b=document.createElement("button");b.type="button";b.setAttribute("aria-pressed",i===startPick);
+    const a=document.createElement("span");const k=document.createElement("span");k.className="num";k.textContent=i+1;a.append(k,n);
+    const t=document.createElement("span");t.className="tag";t.textContent=i===startPick?"commence":"";b.append(a,t);b.onclick=()=>{startPick=i;renderStart()};
+    const x=document.createElement("button");x.type="button";x.className="rm";x.textContent="×";x.setAttribute("aria-label","Retirer "+n);
+    x.onclick=()=>{stSel.splice(i,1);if(startPick>=i&&startPick>0)startPick--;renderStart()};
+    r.append(b,x);L.append(r)});
+  const R=$("stRoster");R.innerHTML="";
+  (settings.roster||[]).filter(n=>!stSel.includes(n)).forEach(n=>{const c=document.createElement("span");c.className="chip";
+    const b=document.createElement("button");b.className="nm";b.textContent="+ "+n;b.onclick=()=>{if(stSel.length<MAXP){stSel.push(n);renderStart()}};
+    const x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Supprimer "+n);
+    x.onclick=()=>{if(!confirm(tr("Supprimer "+n+" des personnes enregistrées ?")))return;settings.roster=settings.roster.filter(q=>q!==n);save("fl_settings",settings);renderStart()};
+    c.append(b,x);R.append(c)});
+  $("startGo").disabled=!stSel.length;$("startRand").disabled=stSel.length<2;
+}
+function stCreate(){const inp=$("stNew"),v=inp.value.trim();if(!v)return inp.focus();
+  if(!settings.roster.includes(v)){settings.roster.push(v);save("fl_settings",settings)} // gardé en mémoire pour les prochaines parties
+  if(!stSel.includes(v)&&stSel.length<MAXP)stSel.push(v);inp.value="";renderStart()}
 function startWith(i){
   hideSheet("startSheet");game.cur=i;game.turnStart=game.players[i].score;game.turn=[];render();
   setMsg("À "+game.players[i].name+" de commencer","");voice.say("À "+game.players[i].name+" de commencer",game.players[i].name+" to throw first",true);
@@ -1417,11 +1447,18 @@ function applySettings(){ // fermeture du panneau : partie pas commencée -> tou
   if(game.mode!==settings.mode)setMsg("Le jeu choisi démarrera avec « Nouvelle partie »","");
 }
 $("setClose").onclick=()=>{hideSheet("setSheet");applySettings()};
-$("newGame").onclick=()=>{hideSheet("setSheet");newGame();det.resetRef();askStart()};
-$("winAgain").onclick=()=>{hideSheet("winSheet");newGame();det.resetRef();askStart()};
+$("newGame").onclick=()=>{hideSheet("setSheet");newGame();det.resetRef();askStart(true)};
+$("winAgain").onclick=()=>{hideSheet("winSheet");newGame();det.resetRef();askStart(true)};
 $("winUndo").onclick=()=>undo();
-$("startGo").onclick=()=>startWith(startPick);
-$("startRand").onclick=()=>{startPick=Math.floor(Math.random()*game.players.length);askStart();voice.say("Tirage au sort : "+game.players[startPick].name,"Coin toss: "+game.players[startPick].name,true)};
+// bouton « + » de la barre du haut : revenir à la page Nouvelle partie à tout moment
+$("newBtn").onclick=()=>{if(gameStarted()&&!game.over&&!confirm(tr("Arrêter la partie en cours et en préparer une nouvelle ?")))return;
+  newGame();det.resetRef();askStart(true)}; // newGame garde les statistiques de la partie arrêtée
+$("startGo").onclick=()=>{if(!stSel.length)return;settings.mode=stMode;settings.out=stOut;settings.players=stSel.slice();save("fl_settings",settings);
+  newGame();det.resetRef();startWith(startPick)};
+$("stMode").querySelectorAll("button").forEach(b=>b.onclick=()=>{stMode=b.dataset.v;renderStart()});
+$("stOut").querySelectorAll("button").forEach(b=>b.onclick=()=>{stOut=b.dataset.v;renderStart()});
+$("stAdd").onclick=stCreate;$("stNew").addEventListener("keydown",e=>{if(e.key==="Enter")stCreate()});
+$("startRand").onclick=()=>{if(stSel.length<2)return;startPick=Math.floor(Math.random()*stSel.length);renderStart();voice.say("Tirage au sort : "+stSel[startPick],"Coin toss: "+stSel[startPick],true)};
 $("startSet").onclick=()=>{hideSheet("startSheet");renderSettings();fillVoices();showSheet("setSheet")};
 $("winGo").onclick=()=>{hideSheet("winSheet");if(!game.over&&game.fin&&game.fin.includes(game.cur))advance()};
 $("winEnd").onclick=()=>{hideSheet("winSheet");endGame()};
