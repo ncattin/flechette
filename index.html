@@ -330,6 +330,7 @@ details.more>summary::after{content:"";width:8px;height:8px;border-right:2px sol
 details.more[open]>summary::after{transform:rotate(-135deg);margin-bottom:-4px}
 details.more[open]{padding-bottom:12px}
 details.more>.field+.field{margin-top:12px}
+.field select{border:1px solid var(--line);background:var(--night);color:var(--cream);border-radius:var(--r-sm);padding:11px;font:inherit;width:100%}
 .toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 0}
 .toggle input{width:22px;height:22px;accent-color:var(--green)}
 input[type=range]{width:100%;accent-color:var(--accent)}
@@ -341,6 +342,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .win{text-align:center;align-items:stretch}
 .win .big{font-size:3.8rem;color:var(--accent);text-shadow:0 0 40px rgba(227,36,43,.3)}
 .win p{color:var(--muted)}
+.start h2{margin:0 0 2px;font-family:var(--display);font-style:italic;font-size:1.9rem}
+.startlist{display:flex;flex-direction:column;gap:8px;margin:6px 0}
+.startlist button{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);background:var(--night);color:var(--cream);border-radius:var(--r-sm);padding:14px 16px;font:inherit;font-weight:600;font-size:1.05rem;text-align:left}
+.startlist button[aria-pressed=true]{border-color:var(--green);background:rgba(31,138,76,.16);box-shadow:inset 0 0 0 1px var(--green)}
+.startlist button .tag{font-size:.8rem;color:var(--green);font-weight:700}
+.bigbtn{width:100%;padding:16px;font-size:1.1rem;font-weight:700;margin-top:4px}
 .wstats{display:flex;flex-direction:column;gap:4px;text-align:left}
 .wrow{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:var(--r-sm);font-size:.92rem;color:var(--muted)}
 .wrow .pl{color:var(--accent);font-weight:700;margin-right:8px}
@@ -592,6 +599,10 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <div class="field"><span class="lab">Touche un prénom pour l'ajouter ou le retirer de la partie</span><div class="chips" id="roster" data-empty="Personne pour l'instant : crée un prénom ci-dessous."></div>
       <div class="prow"><input type="text" id="newName" maxlength="16" placeholder="Nouveau prénom" aria-label="Prénom de la nouvelle personne" autocomplete="off" autocapitalize="words" enterkeyhint="done"><button class="create" id="createP">Ajouter</button></div></div>
     <div class="toggle"><label for="voiceOn">Annonce vocale des scores</label><input type="checkbox" id="voiceOn"></div>
+    <div class="field" id="voiceBox"><label for="voiceSel">Voix des annonces</label><select id="voiceSel"></select>
+      <label for="pitchR">Hauteur : <b id="pitchV"></b></label><input type="range" id="pitchR" min="0.5" max="2" step="0.05">
+      <label for="rateR">Vitesse : <b id="rateV"></b></label><input type="range" id="rateR" min="0.6" max="1.6" step="0.05">
+      <div class="row"><button class="btn" id="voiceReset">Voix normale</button><button class="btn" id="voiceTest">Écouter</button></div></div>
     <details class="more">
       <summary>Détection et diagnostic</summary>
       <p class="lab small" id="camRes">Caméra : pas encore activée</p>
@@ -634,6 +645,15 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 </div>
 
 <!-- win -->
+<div class="sheet" id="startSheet" role="dialog" aria-modal="true" aria-labelledby="startTitle">
+  <div class="panel start">
+    <h2 id="startTitle">Qui commence ?</h2>
+    <p class="lab" id="startSub"></p>
+    <div class="startlist" id="startList"></div>
+    <div class="row"><button class="btn" id="startRand">Tirage au sort</button><button class="btn" id="startSet">Réglages</button></div>
+    <button class="btn go bigbtn" id="startGo">Commencer la partie</button>
+  </div>
+</div>
 <div class="sheet" id="winSheet" role="dialog" aria-modal="true">
   <div class="panel win">
     <div class="big" id="winName"></div>
@@ -647,7 +667,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const VER="v38";
+const VER="v39";
 /* ---------- langues : français par défaut à chaque démarrage, anglais ou espagnol au choix ---------- */
 // Le choix vaut tant que l'appli est ouverte ; à la fermeture complète, elle repart en français.
 let LANG="fr";try{const l=sessionStorage.getItem("fl_lang");if(l==="en"||l==="es")LANG=l}catch(e){}
@@ -678,7 +698,7 @@ const I18N={
 "À chaque correction d'une fléchette mal comptée, une image est gardée. Envoie-les pour faire progresser la détection.":["Each time you fix a miscounted dart, an image is kept. Send them to improve detection.","Cada vez que corriges un dardo mal contado, se guarda una imagen. Envíalas para mejorar la detección."],
 "Les dernières fléchettes détectées sont gardées en image (avant, après, pointe trouvée).":["The last detected darts are kept as images (before, after, tip found).","Los últimos dardos detectados se guardan como imágenes (antes, después, punta encontrada)."],
 "Caméra : pas encore activée":["Camera: not turned on yet","Cámara: aún no activada"],"Rechercher une mise à jour":["Check for updates","Buscar actualizaciones"],
-"Nouvelle partie":["New game","Nueva partida"],"Effacer l'historique":["Clear history","Borrar el historial"],"Corriger":["Fix","Corregir"],"Rejouer":["Play again","Jugar otra vez"],"Continuer":["Continue","Continuar"],"Terminer":["End game","Terminar"],"Les autres peuvent continuer pour les places suivantes.":["The others can keep playing for the next places.","Los demás pueden seguir por los siguientes puestos."],
+"Nouvelle partie":["New game","Nueva partida"],"Effacer l'historique":["Clear history","Borrar el historial"],"Corriger":["Fix","Corregir"],"Qui commence ?":["Who throws first?","¿Quién empieza?"],"Tirage au sort":["Coin toss","Sorteo"],"Commencer la partie":["Start the game","Empezar la partida"],"commence":["first","empieza"],"Voix des annonces":["Announcer voice","Voz de los anuncios"],"Voix normale":["Normal voice","Voz normal"],"Écouter":["Listen","Escuchar"],"Voix par défaut du téléphone":["Phone default voice","Voz predeterminada del teléfono"],"Autres langues":["Other languages","Otros idiomas"],"Hauteur :":["Pitch:","Tono:"],"Vitesse :":["Speed:","Velocidad:"],"Rejouer":["Play again","Jugar otra vez"],"Continuer":["Continue","Continuar"],"Terminer":["End game","Terminar"],"Les autres peuvent continuer pour les places suivantes.":["The others can keep playing for the next places.","Los demás pueden seguir por los siguientes puestos."],
 "Écran normal":["Normal screen","Pantalla normal"],"Grand écran, lisible de loin":["Big screen, readable from afar","Pantalla grande, legible de lejos"],
 "Annuler la dernière action":["Undo last action","Deshacer la última acción"],"Enregistrer la partie en vidéo":["Record the game on video","Grabar la partida en vídeo"],
 "Outils caméra (zoom, détection, cible)":["Camera tools (zoom, detection, board)","Herramientas de cámara (zoom, detección, diana)"],
@@ -760,7 +780,7 @@ const I18P=[
 [/^moy\. ([\d.]+) · (\d+) fléchettes$/,"avg. $1 · $2 darts","media $1 · $2 dardos"],[/^moy\. ([\d.]+)$/,"avg. $1","media $1"],
 [/^([\d.]+) marques\/tour$/,"$1 marks/round","$1 marcas/turno"],[/^(\d+) marques$/,"$1 marks","$1 marcas"],[/^1 marque$/,"1 mark","1 marca"],
 [/^Fin de partie en cricket \((\d+) points\)\.$/,"Cricket game over ($1 points).","Fin de la partida de cricket ($1 puntos)."],
-[/^Fin de partie en (\d+)\.$/,"Game over ($1).","Fin de la partida ($1)."],[/^(.+) gagne$/,"$1 wins","$1 gana"],[/^(.+) termine (\d+)(er|e)$/,"$1 finishes #$2","$1 termina $2.º"],[/^(.+) termine !$/,"$1 checks out!","¡$1 cierra!"],[/^reste (\d+) · (.*)$/,"$1 left · $2","quedan $1 · $2"],[/^(\d+)(er|e) · (.*)$/,"#$1 · $3","$1.º · $3"],[/^(\d+)(er|e)$/,"#$1","$1.º"],
+[/^Fin de partie en (\d+)\.$/,"Game over ($1).","Fin de la partida ($1)."],[/^(.+) gagne$/,"$1 wins","$1 gana"],[/^À (.+) de commencer$/,"$1 to throw first","Empieza $1"],[/^(.+) · (\d+) joueurs?$/,"$1 · $2 players","$1 · $2 jugadores"],[/^(.+) termine (\d+)(er|e)$/,"$1 finishes #$2","$1 termina $2.º"],[/^(.+) termine !$/,"$1 checks out!","¡$1 cierra!"],[/^reste (\d+) · (.*)$/,"$1 left · $2","quedan $1 · $2"],[/^(\d+)(er|e) · (.*)$/,"#$1 · $3","$1.º · $3"],[/^(\d+)(er|e)$/,"#$1","$1.º"],
 [/^Envoyer les images d'erreurs \((\d+)\)$/,"Send error images ($1)","Enviar imágenes de errores ($1)"],[/^Envoyer le diagnostic \((\d+)\)$/,"Send diagnostics ($1)","Enviar diagnóstico ($1)"],
 [/^Caméra : (\d+) × (\d+) pixels(.*)$/,"Camera: $1 × $2 pixels$3","Cámara: $1 × $2 píxeles$3"],
 [/^L'appli est à jour \((v\d+)\)\.$/,"The app is up to date ($1).","La app está actualizada ($1)."],
@@ -829,7 +849,8 @@ const NATIVE=(()=>{const C=window.Capacitor;if(!C||!C.isNativePlatform||!C.isNat
   return{Plugins:{TextToSpeech:reg("TextToSpeech"),Share:reg("Share"),Filesystem:reg("Filesystem"),App:reg("App"),WebView:(window.capacitorExports&&window.capacitorExports.WebView)||reg("WebView")}}})();
 if(NATIVE)document.documentElement.classList.add("native");
 const voice={v:null,en:false,ok:"speechSynthesis" in window,primed:false,
-  nsay(t,cut,lg){const T=NATIVE.Plugins.TextToSpeech;T.speak({text:t,lang:lg||"fr-FR",rate:1.15,category:"playback",queueStrategy:cut?0:1}).catch(()=>{})},
+  nsay(t,cut,lg){const T=NATIVE.Plugins.TextToSpeech,o={text:t,lang:lg||"fr-FR",rate:vRate(),pitch:vPitch(),category:"playback",queueStrategy:cut?0:1},c=voices.chosen();
+    if(c)o.voice=c.i;T.speak(o).catch(()=>{})},
   pick(){if(!this.ok)return;const vs=speechSynthesis.getVoices();
     this.v=vs.find(v=>/^fr[-_]FR/i.test(v.lang)&&/google|thomas|amélie|amelie|audrey|marie/i.test(v.name))||vs.find(v=>/^fr[-_]FR/i.test(v.lang))||vs.find(v=>/^fr/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;
     this.en=!!(this.v&&/^en/i.test(this.v.lang))},
@@ -838,9 +859,9 @@ const voice={v:null,en:false,ok:"speechSynthesis" in window,primed:false,
     if(LANG!=="fr"&&settings.voice){const t=(LANG==="en"?(en||fr):frToEs(fr)).replace(/Joueur (\d+)/g,LANG==="en"?"Player $1":"Jugador $1"),lg=LANG==="en"?"en-GB":"es-ES";
       if(NATIVE){this.nsay(t,cut,lg);return}if(!this.ok)return;
       try{if(cut)speechSynthesis.cancel();const vs=speechSynthesis.getVoices(),v=vs.find(x=>x.lang.toLowerCase().startsWith(LANG)),u=new SpeechSynthesisUtterance(t);
-        if(v){u.voice=v;u.lang=v.lang}else u.lang=lg;u.rate=1.15;speechSynthesis.speak(u)}catch(e){}return}
+        const c=voices.chosen();if(c&&c.v){u.voice=c.v;u.lang=c.v.lang}else if(v){u.voice=v;u.lang=v.lang}else u.lang=lg;u.rate=vRate();u.pitch=vPitch();speechSynthesis.speak(u)}catch(e){}return}
     if(NATIVE&&settings.voice){this.nsay(fr,cut);return}if(!this.ok||!settings.voice)return;try{if(!this.v)this.pick();if(cut)speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(this.en?(en||fr):fr);if(this.v){u.voice=this.v;u.lang=this.v.lang}else u.lang="fr-FR";u.rate=1.15;speechSynthesis.speak(u)}catch(e){}},
+    const u=new SpeechSynthesisUtterance(this.en?(en||fr):fr);const c=voices.chosen();if(c&&c.v){u.voice=c.v;u.lang=c.v.lang}else if(this.v){u.voice=this.v;u.lang=this.v.lang}else u.lang="fr-FR";u.rate=vRate();u.pitch=vPitch();speechSynthesis.speak(u)}catch(e){}},
   dart(d){
     if(d.num===0)return d.out?["Zéro","Zero"]:["Raté","Miss"];
     if(d.num===25)return d.mult===2?["Bull","Bullseye"]:["25","25"];
@@ -849,7 +870,27 @@ const voice={v:null,en:false,ok:"speechSynthesis" in window,primed:false,
     return[""+d.num,""+d.num];
   }
 };
-if(voice.ok&&!NATIVE){voice.pick();speechSynthesis.onvoiceschanged=()=>voice.pick()}
+if(voice.ok&&!NATIVE){voice.pick();speechSynthesis.onvoiceschanged=()=>{voice.pick();voices.list=null}}
+// voix choisie par langue (settings.voices[LANG] = nom de la voix), hauteur et vitesse réglables
+function vRate(){const r=+settings.vRate;return r>=.5&&r<=2?r:1.15}
+function vPitch(){const r=+settings.vPitch;return r>=.5&&r<=2?r:1}
+const voices={list:null,
+  async load(){if(this.list)return this.list;let L=[];
+    try{if(NATIVE){const r=await NATIVE.Plugins.TextToSpeech.getSupportedVoices();L=((r&&r.voices)||[]).map((v,i)=>({i,name:v.name||v.voiceURI||("Voix "+(i+1)),lang:v.lang||""}))}
+      else if(voice.ok)L=speechSynthesis.getVoices().map((v,i)=>({i,name:v.name,lang:v.lang,v}))}catch(e){}
+    if(L.length)this.list=L;return L},
+  chosen(){const n=(settings.voices||{})[LANG];if(!n||!this.list)return null;return this.list.find(v=>v.name===n)||null}};
+voices.load();
+// libellé lisible : « fr-FR · Voix 3 (homme) » quand Android donne un nom technique (fr-fr-x-frd-local…)
+function voiceLabel(v){const m=/^([a-z]{2,3})-([a-z]{2,3})-x-([a-z]+)-(local|network)$/i.exec(v.name);
+  if(m)return v.lang+" · voix "+m[3].toUpperCase()+(m[4]==="network"?" (en ligne)":"");return v.name+(v.lang&&!v.name.includes(v.lang)?" · "+v.lang:"")}
+async function fillVoices(){const sel=$("voiceSel");if(!sel)return;const L=await voices.load(),lg=LANG==="en"?"en":LANG==="es"?"es":"fr";
+  sel.innerHTML="";const o0=document.createElement("option");o0.value="";o0.textContent="Voix par défaut du téléphone";sel.append(o0);
+  const mine=L.filter(v=>v.lang.toLowerCase().startsWith(lg)),other=L.filter(v=>!v.lang.toLowerCase().startsWith(lg));
+  for(const[g,arr]of[[null,mine],["Autres langues",other]]){if(!arr.length)continue;const par=g?Object.assign(document.createElement("optgroup"),{label:g}):sel;
+    arr.slice().sort((a,b)=>voiceLabel(a).localeCompare(voiceLabel(b))).forEach(v=>{const o=document.createElement("option");o.value=v.name;o.textContent=voiceLabel(v);par.append(o)});if(g)sel.append(par)}
+  sel.value=(settings.voices||{})[LANG]||"";if(sel.value!==((settings.voices||{})[LANG]||""))sel.value="";
+  $("pitchR").value=vPitch();$("rateR").value=vRate();$("pitchV").textContent=vPitch().toFixed(2);$("rateV").textContent=vRate().toFixed(2)}
 document.addEventListener("pointerdown",()=>voice.prime(),{once:true,capture:true});
 function sayPath(pth){return pth.map(t=>t.l==="Bull"?"bull":t.l==="25"?"25":t.l[0]==="T"?"triple "+t.l.slice(1):t.l[0]==="D"?"double "+t.l.slice(1):t.l).join(", ")}
 function sayPathEn(pth){return pth.map(t=>t.l==="Bull"?"bull":t.l==="25"?"25":t.l[0]==="T"?"treble "+t.l.slice(1):t.l[0]==="D"?"double "+t.l.slice(1):t.l).join(", ")}
@@ -925,7 +966,7 @@ function evalTurn(){
 function locked(){const e=evalTurn();return game.over||game.turn.length>=3||e.bust||e.won}
 function addDart(d){
   if(locked())return false;
-  snap();game.turn.push(d);render();announce(d,false);
+  if(!d.at)d.at=Date.now();snap();game.turn.push(d);render();announce(d,false);
   const e=evalTurn();
   if(e.won){setMsg(game.players[game.cur].name+" termine !","green");const g=game;setTimeout(()=>{if(game===g&&!game.over&&evalTurn().won)nextTurn(false)},900)}
   else if(e.bust)setMsg("Bust ! Le score revient à "+game.turnStart,"red");
@@ -957,6 +998,22 @@ function advance(){
   if(x01&&rr>0&&rr<=180){const pth=finishPath(rr,3,settings.out),fin=pth&&rr<=120;
     voice.say("À "+np.name+". Il reste "+rr+(fin?". "+sayPath(pth):pth?"":", pas de finish en 3 fléchettes"),np.name+", you require "+rr+(fin?". "+sayPathEn(pth):""))}
   else voice.say("À "+np.name,np.name+" to throw");
+}
+// « Qui commence ? » : à l'ouverture de l'appli, et à chaque nouvelle partie
+let startPick=0;
+function askStart(){
+  if(!game||gameStarted())return;
+  startPick=Math.min(startPick,game.players.length-1);
+  $("startSub").textContent=(isCricket()?"Cricket":game.mode==="free"?"Jeu libre":game.mode+" · "+(OUTS[settings.out]||settings.out))+" · "+game.players.length+" joueur"+(game.players.length>1?"s":"");
+  const L=$("startList");L.innerHTML="";
+  game.players.forEach((p,i)=>{const b=document.createElement("button");b.type="button";b.setAttribute("aria-pressed",i===startPick);
+    const n=document.createElement("span");n.textContent=p.name;const t=document.createElement("span");t.className="tag";t.textContent=i===startPick?"commence":"";
+    b.append(n,t);b.onclick=()=>{startPick=i;askStart()};L.append(b)});
+  showSheet("startSheet");
+}
+function startWith(i){
+  hideSheet("startSheet");game.cur=i;game.turnStart=game.players[i].score;game.turn=[];render();
+  setMsg("À "+game.players[i].name+" de commencer","");voice.say("À "+game.players[i].name+" de commencer",game.players[i].name+" to throw first",true);
 }
 function placeTxt(n){return n===1?"1er":n+"e"}
 // le joueur courant a terminé : à 2 joueurs (ou au cricket) la partie s'arrête ; à 3 ou plus, on peut jouer les places suivantes
@@ -1328,6 +1385,12 @@ function renderSettings(){
 
 }
 $("modeSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{settings.mode=b.dataset.v;save("fl_settings",settings);renderSettings()});
+$("voiceSel").onchange=()=>{settings.voices=Object.assign({},settings.voices,{[LANG]:$("voiceSel").value});save("fl_settings",settings);voice.say("Voici ma voix. Triple vingt !","This is my voice. Treble twenty!",true)};
+$("pitchR").oninput=()=>{settings.vPitch=+$("pitchR").value;$("pitchV").textContent=vPitch().toFixed(2)};
+$("rateR").oninput=()=>{settings.vRate=+$("rateR").value;$("rateV").textContent=vRate().toFixed(2)};
+$("pitchR").onchange=$("rateR").onchange=()=>{save("fl_settings",settings);voice.say("Reste 32. Finish double 16","32 left. Checkout double 16",true)};
+$("voiceTest").onclick=()=>voice.say("Cent quatre-vingts ! Reste 40. Finish double 20","One hundred and eighty! 40 left. Checkout double 20",true);
+$("voiceReset").onclick=()=>{settings.voices=Object.assign({},settings.voices,{[LANG]:""});delete settings.vPitch;delete settings.vRate;save("fl_settings",settings);fillVoices();voice.say("Voix normale","Normal voice",true)};
 $("voiceOn").onchange=()=>{settings.voice=$("voiceOn").checked;save("fl_settings",settings);if(settings.voice)voice.say("Annonce vocale activée","Voice on",true)};
 $("cutOn").onchange=()=>{settings.cut=$("cutOn").checked;save("fl_settings",settings)};
 $("outSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{settings.out=b.dataset.v;save("fl_settings",settings);renderSettings();render()});
@@ -1340,7 +1403,7 @@ function createPerson(){const inp=$("newName"),v=inp.value.trim();if(!v)return i
     const k=settings.players.findIndex(n=>/^Joueur \d+$/.test(n));if(k>=0)settings.players[k]=v;else settings.players.push(v)}
   inp.value="";save("fl_settings",settings);renderSettings()}
 $("createP").onclick=createPerson;$("newName").addEventListener("keydown",e=>{if(e.key==="Enter")createPerson()});
-$("openSettings").onclick=()=>{renderSettings();showSheet("setSheet")};
+$("openSettings").onclick=()=>{renderSettings();fillVoices();showSheet("setSheet")};
 function gameStarted(){return game.turn.length>0||game.players.some(p=>(p.st&&p.st.d)||p.score!==(game.mode==="free"||game.mode==="cricket"?0:parseInt(game.mode,10))||Object.values(p.marks||{}).some(v=>v))}
 function applySettings(){ // fermeture du panneau : partie pas commencée -> tout s'applique ; sinon on garde les scores
   const names=game.players.map(p=>p.name),same=names.length===settings.players.length&&names.every((n,i)=>n===settings.players[i]);
@@ -1354,9 +1417,12 @@ function applySettings(){ // fermeture du panneau : partie pas commencée -> tou
   if(game.mode!==settings.mode)setMsg("Le jeu choisi démarrera avec « Nouvelle partie »","");
 }
 $("setClose").onclick=()=>{hideSheet("setSheet");applySettings()};
-$("newGame").onclick=()=>{hideSheet("setSheet");newGame();det.resetRef();setMsg("Nouvelle partie : à "+game.players[0].name,"")};
-$("winAgain").onclick=()=>{hideSheet("winSheet");newGame();det.resetRef()};
+$("newGame").onclick=()=>{hideSheet("setSheet");newGame();det.resetRef();askStart()};
+$("winAgain").onclick=()=>{hideSheet("winSheet");newGame();det.resetRef();askStart()};
 $("winUndo").onclick=()=>undo();
+$("startGo").onclick=()=>startWith(startPick);
+$("startRand").onclick=()=>{startPick=Math.floor(Math.random()*game.players.length);askStart();voice.say("Tirage au sort : "+game.players[startPick].name,"Coin toss: "+game.players[startPick].name,true)};
+$("startSet").onclick=()=>{hideSheet("startSheet");renderSettings();fillVoices();showSheet("setSheet")};
 $("winGo").onclick=()=>{hideSheet("winSheet");if(!game.over&&game.fin&&game.fin.includes(game.cur))advance()};
 $("winEnd").onclick=()=>{hideSheet("winSheet");endGame()};
 $("undoBtn").onclick=undo;
@@ -2295,7 +2361,10 @@ const det={
       this.settleT0=Date.now();this.settleUntil=this.settleT0+700;this.setRef(cur);this.empty=cur;const wasRemoving=this.removing;this.removing=0;
       if(this.pendingRemoval){this.pendingRemoval=false;setStatus("Cible vide, à toi de jouer","on");return}
       // aucune main vue et tour pas fini : la (les) fléchette(s) sont tombées -> ratées, le joueur continue
-      if(game.turn.length&&!game.over&&!hadHand&&!wasRemoving&&!locked()&&game.turn.some(o=>o.auto&&o.num!==0)){
+      // une fléchette tombe juste après l'impact ; plantée depuis plus de 2,5 s, sa disparition est un retrait (main pas vue) :
+      // le tour se termine, et la fléchette jamais vue (rebond) compte comme ratée
+      const fresh4=o=>o.at&&Date.now()-o.at<2500;
+      if(game.turn.length&&!game.over&&!hadHand&&!wasRemoving&&!locked()&&game.turn.some(o=>o.auto&&o.num!==0)&&game.turn.filter(o=>o.auto&&o.num!==0).every(fresh4)){
         snap();game.turn=game.turn.map(o=>o.auto&&o.num!==0?Object.assign(mk(0,0),{auto:true,fell:true}):o);render();
         voice.say("Raté, fléchette tombée","Miss, dart fell out",true);setStatus("Fléchette tombée : ratée","hit");return}
       if(game.turn.length&&!game.over){setStatus("Fléchettes retirées, joueur suivant","on");this.endTurn();return}
@@ -2326,7 +2395,9 @@ const det={
     if(removed&&!added.length){
       this.setRef(cur);
       if(!game.turn.length&&!this.pendingRemoval){this.empty=cur;setStatus("En attente d'une fléchette","on");return}
-      if(this.removing||this.pendingRemoval||locked()){if(locked()&&!this.removing)this.removing=Date.now();setStatus("Retrait des fléchettes…","busy");return}
+      // fléchette disparue sans main : tombée seulement si elle venait d'arriver (< 2,5 s, même la 3e) ; plantée depuis plus longtemps, c'est un retrait
+      const goneOld=game.turn.some(o=>o.auto&&o.bp&&o.num!==0&&this.isGone(o.bp,bE)&&!(o.at&&Date.now()-o.at<2500));
+      if(this.removing||this.pendingRemoval||goneOld){if(!this.removing)this.removing=Date.now();setStatus("Retrait des fléchettes…","busy");return}
       // une fléchette a disparu sans qu'une main passe (tour pas fini) : elle est tombée -> ratée
       let fell=0;game.turn.forEach((o,i)=>{if(o.auto&&o.bp&&o.num!==0&&this.isGone(o.bp,bE)){if(!fell)snap();game.turn[i]=Object.assign(mk(0,0),{auto:true,fell:true});fell++}});
       if(fell){render();voice.say("Raté, fléchette tombée","Miss, dart fell out",true);setStatus("Fléchette tombée : ratée","hit");return}
@@ -2647,7 +2718,7 @@ $("demoBtn").onclick=()=>{voice.prime();
   startStream(C.captureStream(30),true).catch(()=>camFail("La démo n'a pas pu démarrer sur ce navigateur."));
 };
 
-{const sg=loadGame();if(sg&&sg.game&&Array.isArray(sg.game.players)&&sg.game.players.length){game=sg.game;undoStack=sg.undo||[];det.pendingRemoval=false;render();if(game.over)try{showWin(false)}catch(e){newGame()}}else newGame()}
+{const sg=loadGame();if(sg&&sg.game&&Array.isArray(sg.game.players)&&sg.game.players.length){game=sg.game;undoStack=sg.undo||[];det.pendingRemoval=false;render();if(game.over)try{showWin(false)}catch(e){newGame()}}else{newGame();askStart()}}
 setMsg("Prêt : active la caméra ou compte à la main","");
 setLang(LANG);
 /* ---------- mise à jour depuis GitHub (appli Android) ---------- */
